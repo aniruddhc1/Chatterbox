@@ -63,7 +63,7 @@ type GetServersReply struct {
 }
 
 
-func NewPaxosServer(masterHostPort string, port string, numNodes, int) (PaxosServer, error) {
+func NewPaxosServer(masterHostPort string, port string, numberOfNodes, int) (PaxosServer, error) {
 	//TODO
 	return nil
 }
