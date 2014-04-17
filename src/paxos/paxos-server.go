@@ -11,6 +11,7 @@ import (
 	"sync"
 	"net/rpc"
 	"net/http"
+	"container/list"
 )
 
 
@@ -37,19 +38,28 @@ type CommitArgs struct {
 	value []byte
 }
 
+type KeyValue struct {
+	proposalID int
+	value []byte
+}
+
 type PaxosServer struct {
 	//TODO
 	numNodes int
 
-	lastVal []byte
-	lastPropNum int
-	recentPropNum int
+	receivedMessages *list.List
+	toCommit *list.List
+
+	highestID int
+	lastProposedID int
 
 	port string
 	masterHostPort string
 
 	serverRing PaxosRing
 	serverRingLock *sync.Mutex
+
+	propseAgainWaitTime int
 
 	paxosConnections map[int] *rpc.Client
 }
@@ -103,12 +113,17 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		port : port,
 		masterHostPort : masterHostPort,
 
-		lastVal : nil,
-		lastPropNum : 0,
-		recentPropNum : 0, //max(recentpropnum+1, lastpropnum+1)
+		receivedMessages : list.New(), //add messages to this list as they come from chat client
+		toCommit : list.New(), //once this proposer becomes a leader and it sends out an accept request
+							   //andd the key value pair to this list of what to accept
+
+		highestID : 0,		   //highest id seen so far
+		lastProposedID : 0,	   //id of the last proposal
 
 		serverRing : serverRing,
 		serverRingLock : &sync.Mutex{},
+
+		propseAgainWaitTime : 0,
 	}
 
 	var err error
@@ -173,17 +188,28 @@ func (ps *PaxosServer) GetServers(args GetServersArgs, reply GetServersReply){
 	}
 }
 
+/*
+ * This is what the chat client will call
+ */
+func sendMessage(msg []byte) error {
+	//TODO
+
+	return nil
+}
+
 /* Propose Request should make a rpc call to all the other paxos servers
  * with a proposal ID.
  */
-func (ps *PaxosServer) ProposeRequest() error{
-	if ps.recentPropNum > ps.lastPropNum {
+func (ps *PaxosServer) ProposeRequest(value []byte) error{
+	if ps.lastCommitedID> ps.highestID {
 		ps.recentPropNum++
 	} else {
-		ps.recentPropNum = ps.lastPropNum + 1
+		ps.lastCommitedID = ps.highestID+ 1
 	}
 
 	requestArgs := ProposeRequestArgs{ps.recentPropNum}
+
+	ps.toCommit.PushBack(KeyValue{ps.lastCommitedID, value})
 
 	for _, conn := range ps.paxosConnections {
 		conn.Call("PaxosServer.HandleProposeRequest", requestArgs)
@@ -192,10 +218,53 @@ func (ps *PaxosServer) ProposeRequest() error{
 	return nil
 }
 
-/* 
- *
+/*
+ * if the acceptor has already seen a proposal with a higher proposal id
+ * reject the proposal else, send back the previously seen message to commit
  */
-func (ps *PaxosServer) HandleProposeRequest() error{
+func (ps *PaxosServer) HandleProposeRequest(args ProposeRequestArgs) error{
+	//TODO
+	reply := ProposeResponseArgs{}
+
+	//check if the proposal id larger than the last seen proposal id
+	if args.proposalID < ps.lastPropNum {
+		reply.acceptPropose = false
+		return nil
+	} else {
+		reply.acceptPropose
+
+		if ps.toCommit.Len() == 0 {
+			reply.previousProposalId = -1
+			reply.previousValue = nil
+			return nil
+		} else {
+			reply.previousProposalId = ps.toCommit.Front().(KeyValue).proposalID
+			reply.previousValue = ps.toCommit.Front().(KeyValue).value
+		}
+	}
+
+	return errors.New("unkown")
+}
+
+/*
+ * Need to wait for majority so if the response creates a majority then send out
+ * accept requests to all acceptors and update the toCommit list
+ */
+func (ps *PaxosServer) HandleProposeResponse(args ProposeResponseArgs) error {
+	//TODO
+
+	/*
+	 * should wait for a majority to come in //TODO what to do
+	 */
+	majority := (ps.numNodes/2 + ps.numNodes %2) - 1
+
+	return errors.New("not implemented")
+}
+
+/* reply with true if a higher value has not been seen and otherwise
+ * reply with false
+ */
+func (ps *PaxosServer) HandleAcceptRequest(args AcceptRequestArgs) error{
 	//TODO
 	return errors.New("not implemented")
 }
@@ -203,7 +272,7 @@ func (ps *PaxosServer) HandleProposeRequest() error{
 /*
  *
  */
-func (ps *PaxosServer) HandleProposeResponse() error {
+func (ps *PaxosServer) HandleAcceptResponse(args AcceptResponseArgs) error{
 	//TODO
 	return errors.New("not implemented")
 }
@@ -211,30 +280,13 @@ func (ps *PaxosServer) HandleProposeResponse() error {
 /*
  *
  */
-func (ps *PaxosServer) HandleAcceptRequest() error{
+func (ps *PaxosServer) HandleCommit(args CommitArgs) error{
 	//TODO
 	return errors.New("not implemented")
 }
 
-/*
- *
- */
-func (ps *PaxosServer) HandleAcceptResponse() error{
-	//TODO
-	return errors.New("not implemented")
-}
-
-/*
- *
- */
-func (ps *PaxosServer) HandleCommit() error{
-	//TODO
-	return errors.New("not implemented")
-}
-
-/*
- *					HELPER FUNCTIONS BELOW
- */
+//				HELPER FUNCTIONS BELOW				//
+//													//
 
 
 /*
