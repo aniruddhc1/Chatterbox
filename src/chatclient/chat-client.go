@@ -3,6 +3,7 @@ package chatclient
 import (
 	"time"
 	"errors"
+	"github.com/go-martini/martini"
 )
 
 type chatMessage struct {
