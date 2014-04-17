@@ -198,7 +198,7 @@ func (ps *PaxosServer) HandleAcceptRequest(msg PaxosMessage) error{
  */
 func (ps *PaxosServer) HandleAcceptResponse(msg PaxosMessage) error{
 	//TODO
-	return errors.New("not implemented")
+	return errors.New("not implementexd")
 }
 
 /*
