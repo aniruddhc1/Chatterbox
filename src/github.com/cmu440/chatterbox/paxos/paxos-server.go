@@ -311,7 +311,7 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs) error {
 			}
 
 			conn := ps.paxosConnections[port]
-			
+
 			reply := &AcceptResponseArgs{}
 			err := conn.Call("PaxosServer.HandleAcceptRequest", &acceptRequest, reply)
 
@@ -396,7 +396,10 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
 
 		commitMsg := &CommitArgs{ps.toCommit.Front().Value.(AcceptRequestArgs).value, ps.port}
 
-		for _, conn := range ps.paxosConnections {
+		for e:=ps.receivedAcceptResponses.Front(); e!=nil; e=e.Next(){
+			port := e.Value.(AcceptResponseArgs).port
+			conn := ps.paxosConnections[port]
+		
 			err := conn.Call("PaxosServer.HandleCommit", &commitMsg, nil) //todo agree that reply should be nothing
 			if err != nil {
 				return err
