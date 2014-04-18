@@ -6,9 +6,6 @@ import (
 	"strconv"
 	"time"
 	"sync"
-	"rpc"
-	"http"
-	"sync"
 	"net/rpc"
 	"net/http"
 	"container/list"
@@ -70,7 +67,7 @@ type PaxosServer struct {
 
 	paxosConnections map[int] *rpc.Client
 
-	receivedProposeResponses map[KeyValue] *list.List
+	receivedProposeResponses map[*KeyValue] *list.List
 	numProposeResponsesReceived int
 
 	receivedAcceptResponses *list.List
@@ -116,7 +113,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 	//TODO
 
 	serverRing := PaxosRing{
-		servers : make([]string, numNodes),
+		servers : make([]int, numNodes),
 		masterHostPort : masterHostPort,
 		numConnected : 0,
 	}
@@ -126,7 +123,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		port : port,
 		masterHostPort : masterHostPort,
 
-		receivedMessages :  make(map[KeyValue] *list.List), //add messages to this list as they come from chat client
+		receivedMessages :  list.New(), //add messages to this list as they come from chat client
 		proposedMessage :  KeyValue{}, //once this proposer becomes a leader and it sends out an accept request
 							   //and the key value pair to this list of what to accept
 
@@ -140,7 +137,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 
 		paxosConnections : make(map[int] *rpc.Client),
 
-		receivedProposeResponses : make(map[KeyValue] *list.List),
+		receivedProposeResponses : make(map[*KeyValue] *list.List),
 		numProposeResponsesReceived : 0,
 
 		receivedAcceptResponses : list.New(),
@@ -222,15 +219,15 @@ func (ps *PaxosServer) SendMessage(msg []byte) error {
  * with a proposal ID.
  */
 func (ps *PaxosServer) ProposeRequest(value []byte) error{
-	if ps.lastCommittedID> ps.highestID {
-		ps.lastCommittedID++
+	if ps.lastProposedID > ps.highestID {
+		ps.lastProposedID++
 	} else {
-		ps.lastCommittedID = ps.highestID+ 1
+		ps.lastProposedID = ps.highestID+ 1
 	}
 
-	requestArgs := ProposeRequestArgs{ps.recentPropNum}
+	requestArgs := ProposeRequestArgs{ps.lastProposedID, ps.port}
 
-	ps.proposedMessage = KeyValue{ps.lastCommittedID, value}
+	ps.proposedMessage = KeyValue{ps.lastProposedID, value}
 
 	for _, conn := range ps.paxosConnections {
 		conn.Call("PaxosServer.HandleProposeRequest", requestArgs, nil)
@@ -248,7 +245,7 @@ func (ps *PaxosServer) HandleProposeRequest(args *ProposeRequestArgs) error{
 	reply := ProposeResponseArgs{}
 
 	//check if the proposal id larger than the last seen proposal id
-	if args.proposalID < ps.lastPropNum {
+	if args.proposalID < ps.lastProposedID {
 		reply.acceptPropose = false
 		return nil
 	} else {
@@ -284,7 +281,7 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs) error {
 
 	ps.numProposeResponsesReceived++
 
-	pair := KeyValue{args.previousProposalId, args.previousValue}
+	pair := &KeyValue{args.previousProposalId, args.previousValue}
 
 	if _, ok := ps.receivedProposeResponses[pair]; !ok {
 		ps.receivedProposeResponses[pair] = list.New()
@@ -406,6 +403,7 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
  *
  */
 func (ps *PaxosServer) HandleCommit(args *CommitArgs) error{
+	args = args
 	//TODO
 	//Basically for now just log, idk what else to do here
 
@@ -449,15 +447,15 @@ func (ps *PaxosServer) startMaster() error {
 	for {
 		numTries++
 
-		args := &RegisterArgs{"localhost:" + strconv.Itoa(ps.port)}
+		args := &RegisterArgs{ps.port}
 
-		servers := make([] string ps.numNodes)
+		servers := make([]int, ps.numNodes)
 
-		reply := &RegisterReply{servers, nil}
+		reply := &RegisterReply{nil, servers}
 
 		ps.RegisterServer(args, reply)
 
-		if reply.error != nil {
+		if reply.err != nil {
 			time.Sleep(time.Second)
 		} else {
 			break
@@ -495,7 +493,7 @@ func (ps *PaxosServer) startServer() error {
 
 	for {
 		numTries++
-		args := &RegisterArgs{"localhost:" + strconv.Itoa(ps.port)}
+		args := &RegisterArgs{ps.port}
 		reply := &RegisterReply{}
 
 		errCall := slave.Call("PaxosServer.RegisterServer", args, reply)
