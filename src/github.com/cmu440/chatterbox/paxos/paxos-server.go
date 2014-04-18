@@ -9,7 +9,7 @@ import (
 	"net/rpc"
 	"net/http"
 	"container/list"
-	"fmt"
+	"github.com/cmu440/chatterbox/logger"
 )
 
 
@@ -73,6 +73,9 @@ type PaxosServer struct {
 
 	receivedAcceptResponses *list.List
 	numAcceptResponsesReceived int
+
+	logger *logger.Logger
+
 }
 
 type PaxosRing struct{
@@ -144,6 +147,8 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 
 		receivedAcceptResponses : list.New(),
 		numAcceptResponsesReceived : 0,
+
+		logger : logger.NewLogger(),
 	}
 
 	var err error
@@ -297,12 +302,16 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs) error {
 	if ps.receivedProposeResponses[pair].Len() >= majority {
 		//go through all the received propose responses and send them an accept request
 
-		for port, conn := range ps.paxosConnections {
+		for e:= ps.receivedProposeResponses[pair].Front(); e!=nil; e = e.Next(){
+
+			port := e.Value.(ProposeResponseArgs).port
 
 			if port == ps.port {
 				continue
 			}
 
+			conn := ps.paxosConnections[port]
+			
 			reply := &AcceptResponseArgs{}
 			err := conn.Call("PaxosServer.HandleAcceptRequest", &acceptRequest, reply)
 
