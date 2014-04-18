@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"net/http"
 	"container/list"
+	"fmt"
 )
 
 
@@ -100,11 +101,12 @@ type GetServersReply struct {
 
 
 /*
- * Creates a new paxos server and starts the paxos server. masterServerHostPort is the
- * master paxos server which is used to ensure all the paxos servers join the ring. If
- * masterHostPort is empty then it is the master; otherwise, this server is a regular
- * paxos server. port is the the port number that this server should listen on.
  *
+ * Creates a new paxos server and starts the paxos server. masterServerHostPort is the
+ * master paxos server which is used to ensure all the paxos servers join the ring.
+ * masterHostPort is the master server's hostport. If masterHostPort is empty then
+ * it is the master; otherwise, this server is a regular paxos server. port is
+ * the port number that this server should listen on.
  * This function should return only once all paxos servers have joined the ring
  * and should return a non-nil error if the storage server could not be started
  *
@@ -157,7 +159,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 	for i:=0; i<numNodes; i++ {
 		currPort := paxosServer.serverRing.servers[i]
 		if currPort == port {
-			continue
+			continue //already connected
 		} else {
 			serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+ strconv.Itoa(currPort))
 			if dialErr != nil {
@@ -468,6 +470,7 @@ func (ps *PaxosServer) startMaster() error {
  *
  */
 func (ps *PaxosServer) startServer() error {
+
 	errRegister := rpc.RegisterName("StorageServer", ps)
 	rpc.HandleHTTP()
 
