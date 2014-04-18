@@ -145,7 +145,8 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 
 		receivedAcceptResponses : list.New(),
 		numAcceptResponsesReceived : 0,
-}
+	}
+
 	var err error
 
 	if masterHostPort == "" {
@@ -353,14 +354,16 @@ func (ps *PaxosServer) HandleAcceptRequest(args *AcceptRequestArgs) error{
 	}
 
 	//send the reply back to the proposer with rpc call
+	ps.toCommit.PushBack(args)
 
 	err := ps.paxosConnections[args.port].Call("PaxosServer.HandleAcceptResponse", &reply, nil)
 
 	if err != nil{
 		return err
-	}else {
-		return nil
 	}
+
+	return nil
+
 }
 
 /* wait for majority. Once majority has been reached then send a commit message
@@ -405,9 +408,17 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
 func (ps *PaxosServer) HandleCommit(args *CommitArgs) error{
 	//TODO
 	//Basically for now just log, idk what else to do here
+
+	//Reset everything
+	//
 	return errors.New("not implemented")
 }
 
+
+
+
+
+//													//
 //				HELPER FUNCTIONS BELOW				//
 //													//
 
