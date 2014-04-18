@@ -17,25 +17,30 @@ import (
 
 type ProposeRequestArgs struct {
 	proposalID int
+	port int
 }
 
 type ProposeResponseArgs struct {
 	acceptPropose bool
 	previousProposalId int
 	previousValue []byte
+	port int
 }
 
 type AcceptRequestArgs struct {
 	proposalId int
 	value []byte
+	port int
 }
 
 type AcceptResponseArgs struct {
 	accepted bool
+	port int
 }
 
 type CommitArgs struct {
 	value []byte
+	port int
 }
 
 type KeyValue struct {
@@ -62,6 +67,12 @@ type PaxosServer struct {
 	proposeAgainWaitTime int
 
 	paxosConnections map[int] *rpc.Client
+
+	receivedProposeResponses map[KeyValue] *list.List
+	numProposeResponsesReceived int
+
+	receivedAcceptResponses *list.List
+	numAcceptResponsesReceived int
 }
 
 type PaxosRing struct{
@@ -113,7 +124,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		port : port,
 		masterHostPort : masterHostPort,
 
-		receivedMessages : list.New(), //add messages to this list as they come from chat client
+		receivedMessages :  make(map[KeyValue] *list.List), //add messages to this list as they come from chat client
 		toCommit : list.New(), //once this proposer becomes a leader and it sends out an accept request
 							   //and the key value pair to this list of what to accept
 
@@ -123,9 +134,16 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		serverRing : serverRing,
 		serverRingLock : &sync.Mutex{},
 
-		proposeAgainWaitTime : 1,
-	}
+		propseAgainWaitTime : 0,
 
+		paxosConnections : make(map[int] *rpc.Client),
+
+		receivedProposeResponses : make(map[KeyValue] *list.List),
+		numProposeResponsesReceived : 0,
+
+		receivedAcceptResponses : list.New(),
+		numAcceptResponsesReceived : 0,
+}
 	var err error
 
 	if masterHostPort == "" {
@@ -133,6 +151,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 	} else {
 		err = paxosServer.startServer()
 	}
+
 
 	//dialing to all other paxos servers and storing the connection
 	for i:=0; i<numNodes; i++ {
@@ -178,7 +197,7 @@ func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply){
  * It replies with ready equal to false if not all nodes have joined
  * and otherwise with with ready equal to true and the server list
  */
-func (ps *PaxosServer) GetServers(args GetServersArgs, reply GetServersReply){
+func (ps *PaxosServer) GetServers(args *GetServersArgs, reply *GetServersReply){
 	if ps.serverRing.numConnected == ps.numNodes {
 		reply.servers = ps.serverRing.servers
 		reply.ready = true
@@ -211,7 +230,7 @@ func (ps *PaxosServer) SendMessage(msg []byte) error {
  */
 func (ps *PaxosServer) ProposeRequest(value []byte) error{
 	if ps.lastCommitedID> ps.highestID {
-		ps.recentPropNum++
+		ps.lastCommitedID++
 	} else {
 		ps.lastCommitedID = ps.highestID+ 1
 	}
@@ -231,7 +250,7 @@ func (ps *PaxosServer) ProposeRequest(value []byte) error{
  * if the acceptor has already seen a proposal with a higher proposal id
  * reject the proposal else, send back the previously seen message to commit
  */
-func (ps *PaxosServer) HandleProposeRequest(args ProposeRequestArgs) error{
+func (ps *PaxosServer) HandleProposeRequest(args *ProposeRequestArgs) error{
 	//TODO
 	reply := ProposeResponseArgs{}
 
@@ -252,6 +271,9 @@ func (ps *PaxosServer) HandleProposeRequest(args ProposeRequestArgs) error{
 		}
 	}
 
+	//TODO
+	// make a rpc call back to the server in the args port
+
 	return errors.New("unkown")
 }
 
@@ -259,13 +281,33 @@ func (ps *PaxosServer) HandleProposeRequest(args ProposeRequestArgs) error{
  * Need to wait for majority so if the response creates a majority then send out
  * accept requests to all acceptors and update the toCommit list
  */
-func (ps *PaxosServer) HandleProposeResponse(args ProposeResponseArgs) error {
+func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs) error {
 	//TODO
-
-	/*
-	 * should wait for a majority to come in //TODO what to do
-	 */
 	majority := (ps.numNodes/2 + ps.numNodes %2) - 1
+
+	ps.numProposeResponsesReceived++
+
+	pair := KeyValue{args.previousProposalId, args.previousValue}
+
+	if _, ok := ps.receivedProposeResponses; !ok {
+		ps.receivedProposeResponses[pair] = list.New()
+	}
+
+	ps.receivedProposeResponses[pair].PushBack(args)
+
+
+	if ps.receivedProposeResponses[pair] >= majority {
+		//TODO
+		//send accept requests to all the pairs in the majority
+
+		return nil
+	}
+
+	if ps.numProposeResponsesReceived == ps.numNodes -1 {
+		//TODO
+		//wait for some tiem and propose again
+	}
+
 
 	return errors.New("not implemented")
 }
@@ -273,24 +315,59 @@ func (ps *PaxosServer) HandleProposeResponse(args ProposeResponseArgs) error {
 /* reply with true if a higher value has not been seen and otherwise
  * reply with false
  */
-func (ps *PaxosServer) HandleAcceptRequest(args AcceptRequestArgs) error{
+func (ps *PaxosServer) HandleAcceptRequest(args *AcceptRequestArgs) error{
+	//check that you haven't received a higher proposal id than the one given
+	//if it is send an error back not accepting
+	reply := &AcceptResponseArgs{}
+
+	if ps.highestID > args.proposalId {
+		reply.accepted = false
+	} else {
+		reply.accepted = true
+		reply.port = ps.port
+	}
+
 	//TODO
+	//send the reply back to the proposer with rpc call
+
+	return errors.New("not implemented")
+
+
+}
+
+/* wait for majority. Once majority has been reached then send a commit message
+ * if all proposers have replied and majority hasnt been reached then try proposing
+ * again. Otherwise send a commit message with key and value to all nodes, and send
+ * back the value to the chat client
+ */
+func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
+	//TODO
+	majority := (ps.numNodes/2 + ps.numNodes %2) - 1
+
+	ps.numAcceptResponsesReceived ++
+
+	if args.accepted {
+		ps.receivedAcceptResponses.PushBack(args)
+	}
+
+	if ps.receivedAcceptResponses.Len() >= majority {
+		//TODO
+		//send commit message to everyone in the majority :)
+	}
+
+	//TODO
+	//let chat client know that message has been commited
+
 	return errors.New("not implemented")
 }
 
-/*
- *
- */
-func (ps *PaxosServer) HandleAcceptResponse(args AcceptResponseArgs) error{
-	//TODO
-	return errors.New("not implementexd")
-}
 
 /*
  *
  */
-func (ps *PaxosServer) HandleCommit(args CommitArgs) error{
+func (ps *PaxosServer) HandleCommit(args *CommitArgs) error{
 	//TODO
+	//Basically for now just log, idk what else to do here
 	return errors.New("not implemented")
 }
 
@@ -370,9 +447,9 @@ func (ps *PaxosServer) startServer() error {
 	for {
 		numTries++
 		args := &RegisterArgs{"localhost:" + strconv.Itoa(ps.port)}
-		var reply *storagerpc.RegisterReply
+		reply := &RegisterReply{}
 
-		errCall := slave.Call("StorageServer.RegisterServer", args, &reply)
+		errCall := slave.Call("PaxosServer.RegisterServer", args, reply)
 
 		if errCall != nil {
 			return errCall
@@ -385,5 +462,17 @@ func (ps *PaxosServer) startServer() error {
 		}
 	}
 
-	return nil
+	reply := &GetServersReply{}
+	err := slave.Call("PaxosServer.GetServers", &GetServersArgs{}, reply)
+
+	if err != nil {
+		return err
+	}
+
+	if reply.ready {
+		ps.serverRing.servers = reply.servers
+		return nil
+	}
+
+	return errors.New("Was unable to get servers even after all paxos servers joined the ring")
 }
