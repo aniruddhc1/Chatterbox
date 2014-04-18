@@ -256,8 +256,8 @@ func (ps *PaxosServer) HandleProposeRequest(args *ProposeRequestArgs) error{
 			reply.previousValue = nil
 			return nil
 		} else {
-			reply.previousProposalId = ps.toCommit.Front().(KeyValue).proposalID
-			reply.previousValue = ps.toCommit.Front().(KeyValue).value
+			reply.previousProposalId = ps.toCommit.Front().Value.(KeyValue).proposalID
+			reply.previousValue = ps.toCommit.Front().Value.(KeyValue).value
 		}
 	}
 
@@ -319,7 +319,7 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs) error {
 	//retry propose
 
 	if ps.numProposeResponsesReceived == ps.numNodes -1 {
-		val := ps.toCommit.Front().(KeyValue).value
+		val := ps.toCommit.Front().Value.(KeyValue).value
 		ps.toCommit.Remove(ps.toCommit.Front())
 
 		err := ps.ProposeRequest(val)
@@ -383,9 +383,9 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
 		//go through everyone in the majority, get each port (ps.port) and value (front of the toCommit list)
 		//and then send it to them in an rpc call
 
-		commitMsg := &CommitArgs{port : ps.port, value: ps.toCommit.Front().Value}
+		commitMsg := &CommitArgs{ps.toCommit.Front().Value.(AcceptRequestArgs).value, ps.port}
 
-		for port, conn := range ps.paxosConnections {
+		for _, conn := range ps.paxosConnections {
 			err := conn.Call("PaxosServer.HandleCommit", &commitMsg, nil) //todo agree that reply should be nothing
 			if err != nil {
 				return err
