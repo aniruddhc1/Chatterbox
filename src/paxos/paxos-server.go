@@ -378,18 +378,23 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
 		ps.receivedAcceptResponses.PushBack(args)
 	}
 
-	commitMsg := &CommitArgs{}
-
 	if ps.receivedAcceptResponses.Len() >= majority {
 		//TODO send commit message to everyone in the majority :)
-		//go through everyone in the majority, get each port (ps.port) and value (front of
+		//go through everyone in the majority, get each port (ps.port) and value (front of the toCommit list)
+		//and then send it to them in an rpc call
 
+		commitMsg := &CommitArgs{port : ps.port, value: ps.toCommit.Front().Value}
 
+		for port, conn := range ps.paxosConnections {
+			err := conn.Call("PaxosServer.HandleCommit", &commitMsg, nil) //todo agree that reply should be nothing
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	//TODO
-	//let chat client know that message has been commited
-
+	//TODO after chat client code
+	//let chat client know that message has been committed.
 	return errors.New("not implemented")
 }
 
