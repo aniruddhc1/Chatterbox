@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"net/http"
 	"container/list"
+	"github.com/cmu440/chatterbox/logger"
 )
 
 
@@ -72,6 +73,9 @@ type PaxosServer struct {
 
 	receivedAcceptResponses *list.List
 	numAcceptResponsesReceived int
+
+	logger *logger.Logger
+
 }
 
 type PaxosRing struct{
@@ -143,6 +147,8 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 
 		receivedAcceptResponses : list.New(),
 		numAcceptResponsesReceived : 0,
+
+		logger : logger.NewLogger(),
 	}
 
 	var err error
@@ -296,11 +302,15 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs) error {
 	if ps.receivedProposeResponses[pair].Len() >= majority {
 		//go through all the received propose responses and send them an accept request
 
-		for port, conn := range ps.paxosConnections {
+		for e:= ps.receivedProposeResponses[pair].Front(); e!=nil; e = e.Next(){
+
+			port := e.Value.(ProposeResponseArgs).port
 
 			if port == ps.port {
 				continue
 			}
+
+			conn := ps.paxosConnections[port]
 
 			reply := &AcceptResponseArgs{}
 			err := conn.Call("PaxosServer.HandleAcceptRequest", &acceptRequest, reply)
@@ -386,7 +396,10 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs) error{
 
 		commitMsg := &CommitArgs{ps.toCommit.Front().Value.(AcceptRequestArgs).value, ps.port}
 
-		for _, conn := range ps.paxosConnections {
+		for e:=ps.receivedAcceptResponses.Front(); e!=nil; e=e.Next(){
+			port := e.Value.(AcceptResponseArgs).port
+			conn := ps.paxosConnections[port]
+		
 			err := conn.Call("PaxosServer.HandleCommit", &commitMsg, nil) //todo agree that reply should be nothing
 			if err != nil {
 				return err
