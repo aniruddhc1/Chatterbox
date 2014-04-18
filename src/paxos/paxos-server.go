@@ -59,7 +59,7 @@ type PaxosServer struct {
 	serverRing PaxosRing
 	serverRingLock *sync.Mutex
 
-	propseAgainWaitTime int
+	proposeAgainWaitTime int
 
 	paxosConnections map[int] *rpc.Client
 }
@@ -115,7 +115,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 
 		receivedMessages : list.New(), //add messages to this list as they come from chat client
 		toCommit : list.New(), //once this proposer becomes a leader and it sends out an accept request
-							   //andd the key value pair to this list of what to accept
+							   //and the key value pair to this list of what to accept
 
 		highestID : 0,		   //highest id seen so far
 		lastProposedID : 0,	   //id of the last proposal
@@ -123,7 +123,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		serverRing : serverRing,
 		serverRingLock : &sync.Mutex{},
 
-		propseAgainWaitTime : 0,
+		proposeAgainWaitTime : 1,
 	}
 
 	var err error
@@ -137,7 +137,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 	//dialing to all other paxos servers and storing the connection
 	for i:=0; i<numNodes; i++ {
 		currPort := paxosServer.serverRing.servers[i]
-		if currPort == port {
+		if strconv.Itoa(currPort) == port {
 			continue
 		} else {
 			serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+currPort)
@@ -148,7 +148,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 			}
 		}
 	}
-
 	return paxosServer, err
 }
 
@@ -191,9 +190,19 @@ func (ps *PaxosServer) GetServers(args GetServersArgs, reply GetServersReply){
 /*
  * This is what the chat client will call
  */
-func sendMessage(msg []byte) error {
+func (ps *PaxosServer) SendMessage(msg []byte) error {
 	//TODO
 
+	err := ps.ProposeRequest(msg)
+
+
+	for err != nil {
+		time.sleep(ps.proposeAgainWaitTime * time.Millis)
+		ps.proposeAgainWaitTime = ps.proposeAgainWaitTime * 2
+		err = ps.ProposeRequest(msg)
+	}
+
+	ps.proposeAgainWaitTime = 1
 	return nil
 }
 
@@ -231,7 +240,7 @@ func (ps *PaxosServer) HandleProposeRequest(args ProposeRequestArgs) error{
 		reply.acceptPropose = false
 		return nil
 	} else {
-		reply.acceptPropose
+		reply.acceptPropose = true
 
 		if ps.toCommit.Len() == 0 {
 			reply.previousProposalId = -1
@@ -308,6 +317,7 @@ func (ps *PaxosServer) startMaster() error {
 	}
 
 	go http.Serve(listener, nil)
+
 
 	numTries := 0
 
