@@ -148,7 +148,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		receivedAcceptResponses : list.New(),
 		numAcceptResponsesReceived : 0,
 
-		logger : logger.NewLogger(),
+//		logger : logger.NewLogger(),
 	}
 
 	var err error
