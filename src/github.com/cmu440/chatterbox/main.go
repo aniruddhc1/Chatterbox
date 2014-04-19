@@ -1,13 +1,38 @@
 package main
 
+import "fmt"
+
+import "github.com/cmu440/chatterbox/paxos"
+
 import (
 )
 
+var ps1 *paxos.PaxosServer
+var ps2 *paxos.PaxosServer
+var err error
+var err2 error
+
+func startServer1(){
+	ps1, err = paxos.NewPaxosServer("", 1, 8080) //starting master server
+	if(err != nil){
+		fmt.Println(err)
+	}
+
+}
+
+func startServer2(){
+	ps2, err2 = paxos.NewPaxosServer("localhost:8080", 2, 9999) // starting node
+
+	if(err2 != nil){
+		fmt.Println(err2)
+	}
+}
+
 func main(){
-//	_, err := paxos.NewPaxosServer("", 1, 8080) //starting master server
-//
-//	_, err1 :=  paxos.NewPaxosServer("localhost:8080", 2, 9999) // starting node
-//
+	go startServer1()
+
+	go startServer2()
+
 //	fmt.Println(err)
 //	fmt.Println(err1)
 

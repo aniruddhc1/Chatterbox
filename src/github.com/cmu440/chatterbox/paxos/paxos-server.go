@@ -122,7 +122,7 @@ type SendMessageArgs struct {
  * and should return a non-nil error if the paxos server could not be started
  *
  */
-func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, error) {
+func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, error) {
 	//TODO
 
 	serverRing := PaxosRing{
@@ -180,13 +180,13 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 		} else {
 			serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+ strconv.Itoa(currPort))
 			if dialErr != nil {
-				return paxosServer, dialErr
+				return &paxosServer, dialErr
 			} else {
 				paxosServer.paxosConnections[currPort] = serverConn
 			}
 		}
 	}
-	return paxosServer, err
+	return &paxosServer, err
 }
 
 
