@@ -496,7 +496,7 @@ func (ps *PaxosServer) startMaster() error {
  */
 func (ps *PaxosServer) startServer() error {
 
-	errRegister := rpc.RegisterName("StorageServer", ps)
+	errRegister := rpc.RegisterName("PaxosServer", ps)
 	rpc.HandleHTTP()
 
 	if errRegister != nil {

@@ -6,12 +6,7 @@ import (
 	"github.com/go-martini/martini"
 )
 
-type chatMessage struct {
-	user string
-	room  string
-	content  string
-	timestamp  time.Time
-}
+
 
 type chatClient struct {
 
