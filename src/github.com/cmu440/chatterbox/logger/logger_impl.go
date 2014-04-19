@@ -3,15 +3,18 @@ package logger
 
 import (
 	"errors"
+	"time"
 )
 
 
 type LogMessage struct {
-
+	timestamp time.Time
+	proposalID int
+	value 	   []byte
 }
 
 type Logger struct{
-
+	fileName string
 }
 
 func NewLogger() (*Logger, error) {
