@@ -103,8 +103,8 @@ type GetServersArgs struct {
 }
 
 type GetServersReply struct {
-	ready bool
-	servers []int
+	Ready bool
+	Servers []int
 }
 
 type SendMessageArgs struct {
@@ -232,10 +232,10 @@ func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply) 
 func (ps *PaxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) error{
 
 	if ps.serverRing.numConnected == ps.numNodes {
-		reply.servers = ps.serverRing.servers
-		reply.ready = true
+		reply.Servers = ps.serverRing.servers
+		reply.Ready = true
 	} else {
-		reply.ready = false
+		reply.Ready = false
 	}
 
 	return nil
@@ -567,8 +567,8 @@ func (ps *PaxosServer) startServer() error {
 		return err
 	}
 
-	if reply.ready {
-		ps.serverRing.servers = reply.servers
+	if reply.Ready {
+		ps.serverRing.servers = reply.Servers
 		return nil
 	}
 
