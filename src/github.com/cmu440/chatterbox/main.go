@@ -12,6 +12,9 @@ var ps2 *paxos.PaxosServer
 var err error
 var err2 error
 
+// 												//
+//					INIT SERVERS 			 	//
+//												//
 func startServer1(){
 	ps1, err = paxos.NewPaxosServer("", 1, 8080) //starting master server
 	if(err != nil){
@@ -28,12 +31,20 @@ func startServer2(){
 	}
 }
 
+
+//													//
+//					TEST PROPOSER 					//
+//													//
+
+
+
+
+//													//
+//					TEST ACCEPTOR					//
+//													//
+
 func main(){
 	go startServer1()
-
 	go startServer2()
-
-//	fmt.Println(err)
-//	fmt.Println(err1)
 
 }
