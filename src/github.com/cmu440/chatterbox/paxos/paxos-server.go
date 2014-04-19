@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"container/list"
 	"github.com/cmu440/chatterbox/logger"
+	"fmt"
 )
 
 
@@ -118,7 +119,7 @@ type SendMessageArgs struct {
  * it is the master; otherwise, this server is a regular paxos server. port is
  * the port number that this server should listen on.
  * This function should return only once all paxos servers have joined the ring
- * and should return a non-nil error if the storage server could not be started
+ * and should return a non-nil error if the paxos server could not be started
  *
  */
 func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, error) {
@@ -160,17 +161,21 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
 
 	var err error
 
-	if masterEostPort == "" {
+	if masterHostPort == "" {
 		err = paxosServer.startMaster()
 	} else {
 		err = paxosServer.startServer()
 	}
 
-
+	fmt.Println("GOT HERE")
 	//dialing to all other paxos servers and storing the connection
+
 	for i:=0; i<numNodes; i++ {
 		currPort := paxosServer.serverRing.servers[i]
+		fmt.Println("HERE", currPort)
+
 		if currPort == port {
+			fmt.Println("already connected so ignore")
 			continue //already connected
 		} else {
 			serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+ strconv.Itoa(currPort))
@@ -190,21 +195,33 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (PaxosServer, err
  * returns a nil error and a list of all the ports the paxos servers are on.
  */
 func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply) error{
-
+	fmt.Println("REGISTERING")
+	alreadyJoined := false
 	ps.serverRingLock.Lock()
-	for i:= 0; i< len(ps.serverRing.servers); i++ {
+	for i:= 0; i< ps.serverRing.numConnected; i++ {
 		if(ps.serverRing.servers[i] == args.port) {
-			ps.serverRingLock.Unlock()
-			reply.err = errors.New("ALready Registered this server")
-			return nil
+			alreadyJoined = true
 		}
 	}
 
+	var err error
 	reply.err = nil
 	reply.servers = ps.serverRing.servers
-	ps.serverRing.servers[ps.serverRing.numConnected] = args.port
+	fmt.Println(ps.serverRing.numConnected, args.port)
+
+	if !alreadyJoined {
+		ps.serverRing.servers[ps.serverRing.numConnected] = args.port
+		ps.serverRing.numConnected++
+	}
+
 	ps.serverRingLock.Unlock()
-	return nil
+
+	if ps.serverRing.numConnected != ps.numNodes {
+		err = errors.New("Not all servers have joined")
+		reply.err = err
+	}
+
+	return err
 }
 
 
@@ -460,8 +477,8 @@ func (ps *PaxosServer) startMaster() error {
 		return errRegister
 	}
 
+	fmt.Println("the port in master is ", ps.port)
 	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.port))
-
 	if errListen != nil {
 		return errListen
 	}
@@ -472,6 +489,7 @@ func (ps *PaxosServer) startMaster() error {
 	numTries := 0
 
 	for {
+		fmt.Println("Master Trying", numTries)
 		numTries++
 
 		args := &RegisterArgs{ps.port}
@@ -483,6 +501,7 @@ func (ps *PaxosServer) startMaster() error {
 		ps.RegisterServer(args, reply)
 
 		if reply.err != nil {
+			fmt.Println(reply.err)
 			time.Sleep(time.Second)
 		} else {
 			break
@@ -495,14 +514,17 @@ func (ps *PaxosServer) startMaster() error {
  *
  */
 func (ps *PaxosServer) startServer() error {
-
-	errRegister := rpc.RegisterName("StorageServer", ps)
+	fmt.Println("STARTIGN SLAVE")
+//	errRegister := rpc.RegisterName("PaxosServer", ps)
+//	fmt.Println("name is ", errRegister)
 	rpc.HandleHTTP()
+	fmt.Println("handling http")
 
-	if errRegister != nil {
-		return errRegister
-	}
+//	if errRegister != nil {
+//		return errRegister
+//	}
 
+	fmt.Println("the port is ", ps.port)
 	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.port))
 
 	if errListen != nil {
@@ -511,6 +533,7 @@ func (ps *PaxosServer) startServer() error {
 
 	go http.Serve(listener, nil)
 
+	fmt.Println("Masterhost port", ps.masterHostPort)
 	slave, errDial := rpc.DialHTTP("tcp", ps.masterHostPort)
 
 	if errDial != nil {
@@ -524,7 +547,9 @@ func (ps *PaxosServer) startServer() error {
 		args := &RegisterArgs{ps.port}
 		reply := &RegisterReply{}
 
+		fmt.Println("TRYINGGG", args.port)
 		errCall := slave.Call("PaxosServer.RegisterServer", args, reply)
+		fmt.Println("HEREEE")
 
 		if errCall != nil {
 			return errCall
