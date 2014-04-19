@@ -6,6 +6,8 @@ import (
 	"errors"
 	"flag"
 	"time"
+	"github.com/cmu440/chatterbox/chatclient"
+	"encoding/json"
 )
 
 var ps1 *paxos.PaxosServer
@@ -62,6 +64,30 @@ func TestGetServers() error{
 //													//
 //					TEST ACCEPTOR					//
 //													//
+
+/*
+ * Check that after the proposer sends a propose request the acceptor replies OK
+ * if it hasn't seen anything before.
+ */
+func testBasic1() error{
+	msg := chatclient.ChatMessage{"Soumya", "testRoom", "TESTING", time.Now()}
+
+	bytes, marshallErr := json.Marshal(msg)
+
+	if marshallErr != nil {
+		return errors.New("Couldn't Marshal chat message")
+	}
+
+	args := paxos.SendMessageArgs{bytes}
+
+	errPropose := ps1.ProposeRequest(&args, &paxos.DefaultReply{})
+
+	if errPropose != nil {
+		return errPropose
+	}
+
+	return nil
+}
 
 func main(){
 	time.Sleep(time.Second * 3)

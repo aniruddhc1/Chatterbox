@@ -446,14 +446,17 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs, reply *Def
 /*
  *
  */
-func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *DefaultReply) error{
+func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *DefaultReply) ([]byte, error){
 	args = args
 	//TODO
 	//Basically for now just log, idk what else to do here
 
 	//Reset everything
-	//
-	return errors.New("not implemented")
+	for ps.toCommit.
+
+
+
+	return args.value, errors.New("not implemented")
 }
 
 
