@@ -15,15 +15,15 @@ type ChatMessage struct {
 
 func (msg *ChatMessage) ToString() (string, error) {
 	if msg.user == "" {
-		return nil, errors.New("Message doesn't have user")
+		return "", errors.New("Message doesn't have user")
 	}
 
 	if msg.room == "" {
-		return nil, errors.New("Message doesn't have user")
+		return "", errors.New("Message doesn't have user")
 	}
 
 	if msg.content == "" {
-		return nil, errors.New("Message doesn't have content")
+		return "", errors.New("Message doesn't have content")
 	}
 
 	msgString := msg.user + "|" + msg.room + "|" + msg.content + "|" + msg.timestamp.Format(time.RFC3339Nano) + "\n"

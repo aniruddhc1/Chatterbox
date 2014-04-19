@@ -16,7 +16,7 @@ type LogMessage struct {
 }
 
 type Logger struct{
-	file *File
+	file *os.File
 }
 
 func NewLogger() (*Logger, error) {
@@ -66,7 +66,7 @@ func (log *Logger) Post(msg []byte) error {
 /*
 
  */
-func (log *Logger) GetLog() (*File, error) {
+func (log *Logger) GetLog() (*os.File, error) {
 	//TODO
 	return log.file, nil
 }
