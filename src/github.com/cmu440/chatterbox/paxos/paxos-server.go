@@ -518,9 +518,9 @@ func (ps *PaxosServer) startServer() error {
 	rpc.HandleHTTP()
 	fmt.Println("handling http")
 
-//	if errRegister != nil {
-//		return errRegister
-//	}
+	if errRegister != nil {
+		return errRegister
+	}
 
 	fmt.Println("the port is ", ps.port)
 	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.port))
