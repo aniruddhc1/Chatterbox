@@ -2,8 +2,10 @@ package logger
 
 
 import (
-	"errors"
 	"time"
+	"os"
+	"encoding/json"
+	"github.com/cmu440/chatterbox/chatclient"
 )
 
 
@@ -14,23 +16,66 @@ type LogMessage struct {
 }
 
 type Logger struct{
-	fileName string
+	file *File
 }
 
 func NewLogger() (*Logger, error) {
 	//TODO
 
-	return nil, errors.New("Unimplemented")
+	file, errCreate := os.Create("P3-IMPL-LOGGER")
+
+	if errCreate != nil {
+		return nil, errCreate
+	}
+
+	log := &Logger {
+		file : file,
+	}
+
+	return log, nil
 }
 
-func (log *Logger) post() error {
+/*
+ *
+ */
+func (log *Logger) Post(msg []byte) error {
 	//TODO
+
+	chatMsg := chatclient.ChatMessage{}
+
+	errUnmarshal := json.Unmarshal(msg, chatMsg)
+
+	if errUnmarshal != nil {
+		return errUnmarshal
+	}
+	msgString, errString := chatMsg.ToString()
+
+	if errString != nil {
+		return errString
+	}
+
+	_, errWrite := log.file.WriteString(msgString)
+
+	if errWrite != nil {
+		return errWrite
+	}
+
 	return nil
 }
 
-func (log *Logger) getLog() error {
+/*
+
+ */
+func (log *Logger) GetLog() (*File, error) {
 	//TODO
-	return nil
+	return log.file, nil
+}
+
+/* Close the logging file after finishing
+ */
+func (log *Logger) CloseLog() error {
+	errClose := log.file.Close()
+	return errClose
 }
 
 //TODO idk what else this file should have.. 

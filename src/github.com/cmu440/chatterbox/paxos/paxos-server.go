@@ -514,9 +514,7 @@ func (ps *PaxosServer) startMaster() error {
  *
  */
 func (ps *PaxosServer) startServer() error {
-	fmt.Println("STARTIGN SLAVE")
-//	errRegister := rpc.RegisterName("PaxosServer", ps)
-//	fmt.Println("name is ", errRegister)
+	errRegister := rpc.RegisterName("PaxosServer", ps)
 	rpc.HandleHTTP()
 	fmt.Println("handling http")
 
