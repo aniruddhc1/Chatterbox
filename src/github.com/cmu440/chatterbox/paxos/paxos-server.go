@@ -15,36 +15,36 @@ import (
 
 
 type ProposeRequestArgs struct {
-	proposalID int
-	port int
+	ProposalID int
+	Port int
 }
 
 type ProposeResponseArgs struct {
-	acceptPropose bool
-	previousProposalId int
-	previousValue []byte
-	port int
+	AcceptPropose bool
+	PreviousProposalId int
+	PreviousValue []byte
+	Port int
 }
 
 type AcceptRequestArgs struct {
-	proposalId int
-	value []byte
-	port int
+	ProposalID int
+	Value []byte
+	Port int
 }
 
 type AcceptResponseArgs struct {
-	accepted bool
-	port int
+	Accepted bool
+	Port int
 }
 
 type CommitArgs struct {
-	value []byte
-	port int
+	Value []byte
+	Port int
 }
 
 type KeyValue struct {
-	proposalID int
-	value []byte
+	ProposalID int
+	Value []byte
 }
 
 type DefaultReply struct {
@@ -53,49 +53,49 @@ type DefaultReply struct {
 
 type PaxosServer struct {
 	//TODO
-	numNodes int
+	NumNodes int
 
-	receivedMessages *list.List
-	proposedMessage KeyValue
-	toCommit *list.List
+	ReceivedMessages *list.List
+	ProposedMessage KeyValue
+	ToCommit *list.List
 
 
-	highestID int
-	lastProposedID int
+	HighestID int
+	LastProposedID int
 
-	port int
-	masterHostPort string
+	Port int
+	MasterHostPort string
 
-	serverRing PaxosRing
-	serverRingLock *sync.Mutex
+	ServerRing PaxosRing
+	ServerRingLock *sync.Mutex
 
-	proposeAgainWaitTime int
+	ProposeAgainWaitTime int
 
-	paxosConnections map[int] *rpc.Client
+	PaxosConnections map[int] *rpc.Client
 
-	receivedProposeResponses map[*KeyValue] *list.List
-	numProposeResponsesReceived int
+	ReceivedProposeResponses map[*KeyValue] *list.List
+	NumProposeResponsesReceived int
 
-	receivedAcceptResponses *list.List
-	numAcceptResponsesReceived int
+	ReceivedAcceptResponses *list.List
+	NumAcceptResponsesReceived int
 
-	logger *logger.Logger
+	Logger *logger.Logger
 
 }
 
 type PaxosRing struct{
-	servers []int
-	masterHostPort string
-	numConnected int
+	Servers []int
+	MasterHostPort string
+	NumConnected int
 }
 
 type RegisterArgs struct {
-	port int
+	Port int
 }
 
 type RegisterReply struct {
-	err error
-	servers []int
+	Err error
+	Servers []int
 }
 
 type GetServersArgs struct {
@@ -126,35 +126,35 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 	//TODO
 
 	serverRing := PaxosRing{
-		servers : make([]int, numNodes),
-		masterHostPort : masterHostPort,
-		numConnected : 0,
+		Servers : make([]int, numNodes),
+		MasterHostPort : masterHostPort,
+		NumConnected : 0,
 	}
 
 	paxosServer := PaxosServer{
-		numNodes : numNodes,
-		port : port,
-		masterHostPort : masterHostPort,
+		NumNodes : numNodes,
+		Port : port,
+		MasterHostPort : masterHostPort,
 
-		receivedMessages :  list.New(), //add messages to this list as they come from chat client
-		proposedMessage :  KeyValue{}, //once this proposer becomes a leader and it sends out an accept request
+		ReceivedMessages :  list.New(), //add messages to this list as they come from chat client
+		ProposedMessage :  KeyValue{}, //once this proposer becomes a leader and it sends out an accept request
 							   //and the key value pair to this list of what to accept
 
-		highestID : 0,		   //highest id seen so far
-		lastProposedID : 0,	   //id of the last proposal
+		HighestID : 0,		   //highest id seen so far
+		LastProposedID : 0,	   //id of the last proposal
 
-		serverRing : serverRing,
-		serverRingLock : &sync.Mutex{},
+		ServerRing : serverRing,
+		ServerRingLock : &sync.Mutex{},
 
-		proposeAgainWaitTime : 0,
+		ProposeAgainWaitTime : 0,
 
-		paxosConnections : make(map[int] *rpc.Client),
+		PaxosConnections : make(map[int] *rpc.Client),
 
-		receivedProposeResponses : make(map[*KeyValue] *list.List),
-		numProposeResponsesReceived : 0,
+		ReceivedProposeResponses : make(map[*KeyValue] *list.List),
+		NumProposeResponsesReceived : 0,
 
-		receivedAcceptResponses : list.New(),
-		numAcceptResponsesReceived : 0,
+		ReceivedAcceptResponses : list.New(),
+		NumAcceptResponsesReceived : 0,
 
 		//logger : logger.NewLogger(), //TODO
 	}
@@ -171,7 +171,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 	//dialing to all other paxos servers and storing the connection
 
 	for i:=0; i<numNodes; i++ {
-		currPort := paxosServer.serverRing.servers[i]
+		currPort := paxosServer.ServerRing.Servers[i]
 		fmt.Println("HERE", currPort)
 
 		if currPort == port {
@@ -182,7 +182,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 			if dialErr != nil {
 				return &paxosServer, dialErr
 			} else {
-				paxosServer.paxosConnections[currPort] = serverConn
+				paxosServer.PaxosConnections[currPort] = serverConn
 			}
 		}
 	}
@@ -197,28 +197,30 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply) error{
 	fmt.Println("REGISTERING")
 	alreadyJoined := false
-	ps.serverRingLock.Lock()
-	for i:= 0; i< ps.serverRing.numConnected; i++ {
-		if(ps.serverRing.servers[i] == args.port) {
+	ps.ServerRingLock.Lock()
+	for i:= 0; i< ps.ServerRing.NumConnected; i++ {
+		if(ps.ServerRing.Servers[i] == args.Port) {
 			alreadyJoined = true
 		}
 	}
 
 	var err error
-	reply.err = nil
-	reply.servers = ps.serverRing.servers
-	fmt.Println(ps.serverRing.numConnected, args.port)
+	reply.Err = nil
+	reply.Servers = ps.ServerRing.Servers
+	fmt.Println(ps.ServerRing.NumConnected, args.Port)
 
 	if !alreadyJoined {
-		ps.serverRing.servers[ps.serverRing.numConnected] = args.port
-		ps.serverRing.numConnected++
+		fmt.Println("IN REGISTER", ps.ServerRing.NumConnected, args.Port)
+		ps.ServerRing.Servers[ps.ServerRing.NumConnected] = args.Port
+		ps.ServerRing.NumConnected++
 	}
 
-	ps.serverRingLock.Unlock()
+	ps.ServerRingLock.Unlock()
 
-	if ps.serverRing.numConnected != ps.numNodes {
+	if ps.ServerRing.NumConnected != ps.NumNodes {
 		err = errors.New("Not all servers have joined")
-		reply.err = err
+		reply.Err = err
+		return err
 	}
 
 	return err
@@ -231,10 +233,12 @@ func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply) 
  */
 func (ps *PaxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) error{
 
-	if ps.serverRing.numConnected == ps.numNodes {
-		reply.Servers = ps.serverRing.servers
+	if ps.ServerRing.NumConnected == ps.NumNodes {
+		reply.Servers = ps.ServerRing.Servers
+		fmt.Println("number of nodes connected are ", ps.ServerRing.NumConnected)
 		reply.Ready = true
 	} else {
+		fmt.Println("number of nodes connected are ", ps.ServerRing.NumConnected)
 		reply.Ready = false
 	}
 
@@ -255,17 +259,17 @@ func (ps *PaxosServer) SendMessage(args *SendMessageArgs, reply *DefaultReply) e
 func (ps *PaxosServer) ProposeRequest(args *SendMessageArgs, reply *DefaultReply) error{
 	value := args.Message
 
-	if ps.lastProposedID > ps.highestID {
-		ps.lastProposedID++
+	if ps.LastProposedID > ps.HighestID {
+		ps.LastProposedID++
 	} else {
-		ps.lastProposedID = ps.highestID+ 1
+		ps.LastProposedID = ps.HighestID+ 1
 	}
 
-	requestArgs := ProposeRequestArgs{ps.lastProposedID, ps.port}
+	requestArgs := ProposeRequestArgs{ps.LastProposedID, ps.Port}
 
-	ps.proposedMessage = KeyValue{ps.lastProposedID, value}
+	ps.ProposedMessage = KeyValue{ps.LastProposedID, value}
 
-	for _, conn := range ps.paxosConnections {
+	for _, conn := range ps.PaxosConnections {
 		conn.Call("PaxosServer.HandleProposeRequest", requestArgs, &DefaultReply{})
 	}
 
@@ -281,19 +285,19 @@ func (ps *PaxosServer) HandleProposeRequest(args *ProposeRequestArgs, _ *Default
 	reply := ProposeResponseArgs{}
 
 	//check if the proposal id larger than the last seen proposal id
-	if args.proposalID < ps.lastProposedID {
-		reply.acceptPropose = false
+	if args.ProposalID < ps.LastProposedID {
+		reply.AcceptPropose = false
 		return nil
 	} else {
-		reply.acceptPropose = true
+		reply.AcceptPropose = true
 
-		if ps.toCommit.Len() == 0 {
-			reply.previousProposalId = -1
-			reply.previousValue = nil
+		if ps.ToCommit.Len() == 0 {
+			reply.PreviousProposalId = -1
+			reply.PreviousValue = nil
 			return nil
 		} else {
-			reply.previousProposalId = ps.toCommit.Front().Value.(KeyValue).proposalID
-			reply.previousValue = ps.toCommit.Front().Value.(KeyValue).value
+			reply.PreviousProposalId = ps.ToCommit.Front().Value.(KeyValue).ProposalID
+			reply.PreviousValue = ps.ToCommit.Front().Value.(KeyValue).Value
 		}
 	}
 
@@ -313,33 +317,33 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs, reply *D
 	//TODO might have to do some weird stuff with the nil responses because we
 	//cant have a nil key in the map
 
-	majority := (ps.numNodes/2 + ps.numNodes %2) - 1
+	majority := (ps.NumNodes/2 + ps.NumNodes %2) - 1
 
-	ps.numProposeResponsesReceived++
+	ps.NumProposeResponsesReceived++
 
-	pair := &KeyValue{args.previousProposalId, args.previousValue}
+	pair := &KeyValue{args.PreviousProposalId, args.PreviousValue}
 
-	if _, ok := ps.receivedProposeResponses[pair]; !ok {
-		ps.receivedProposeResponses[pair] = list.New()
+	if _, ok := ps.ReceivedProposeResponses[pair]; !ok {
+		ps.ReceivedProposeResponses[pair] = list.New()
 	}
 
-	ps.receivedProposeResponses[pair].PushBack(args)
+	ps.ReceivedProposeResponses[pair].PushBack(args)
 
 
-	acceptRequest := AcceptRequestArgs{pair.proposalID, pair.value, args.port}
+	acceptRequest := AcceptRequestArgs{pair.ProposalID, pair.Value, args.Port}
 
-	if ps.receivedProposeResponses[pair].Len() >= majority {
+	if ps.ReceivedProposeResponses[pair].Len() >= majority {
 		//go through all the received propose responses and send them an accept request
 
-		for e:= ps.receivedProposeResponses[pair].Front(); e!=nil; e = e.Next(){
+		for e:= ps.ReceivedProposeResponses[pair].Front(); e!=nil; e = e.Next(){
 
-			port := e.Value.(ProposeResponseArgs).port
+			port := e.Value.(ProposeResponseArgs).Port
 
-			if port == ps.port {
+			if port == ps.Port {
 				continue
 			}
 
-			conn := ps.paxosConnections[port]
+			conn := ps.PaxosConnections[port]
 
 			reply := &AcceptResponseArgs{}
 			err := conn.Call("PaxosServer.HandleAcceptRequest", &acceptRequest, reply)
@@ -351,27 +355,27 @@ func (ps *PaxosServer) HandleProposeResponse(args *ProposeResponseArgs, reply *D
 			}
 		}
 
-		ps.toCommit.PushBack(acceptRequest)
+		ps.ToCommit.PushBack(acceptRequest)
 		return nil
 	}
 
 	//if we've received responses from everybody and have not reached majority
 	//retry propose
 
-	if ps.numProposeResponsesReceived == ps.numNodes -1 {
+	if ps.NumProposeResponsesReceived == ps.NumNodes -1 {
 
-		val := ps.toCommit.Front().Value.(KeyValue).value
-		ps.toCommit.Remove(ps.toCommit.Front())
+		val := ps.ToCommit.Front().Value.(KeyValue).Value
+		ps.ToCommit.Remove(ps.ToCommit.Front())
 
 		err := ps.ProposeRequest(&SendMessageArgs{val}, &DefaultReply{})
 
 		for err != nil {
-			time.Sleep(time.Duration(ps.proposeAgainWaitTime) * time.Millisecond)
-			ps.proposeAgainWaitTime = ps.proposeAgainWaitTime * 2
+			time.Sleep(time.Duration(ps.ProposeAgainWaitTime) * time.Millisecond)
+			ps.ProposeAgainWaitTime = ps.ProposeAgainWaitTime * 2
 			err = ps.ProposeRequest(&SendMessageArgs{val}, &DefaultReply{})
 		}
 
-		ps.proposeAgainWaitTime = 1
+		ps.ProposeAgainWaitTime = 1
 	}
 	return errors.New("not implemented")
 }
@@ -384,17 +388,17 @@ func (ps *PaxosServer) HandleAcceptRequest(args *AcceptRequestArgs, _ *DefaultRe
 	//if it is send an error back not accepting
 	reply := &AcceptResponseArgs{}
 
-	if ps.highestID > args.proposalId {
-		reply.accepted = false
+	if ps.HighestID > args.ProposalID {
+		reply.Accepted = false
 	} else {
-		reply.accepted = true
-		reply.port = ps.port
+		reply.Accepted = true
+		reply.Port = ps.Port
 	}
 
 	//send the reply back to the proposer with rpc call
-	ps.toCommit.PushBack(args)
+	ps.ToCommit.PushBack(args)
 
-	err := ps.paxosConnections[args.port].Call("PaxosServer.HandleAcceptResponse", &reply, &DefaultReply{})
+	err := ps.PaxosConnections[args.Port].Call("PaxosServer.HandleAcceptResponse", &reply, &DefaultReply{})
 
 	if err != nil{
 		return err
@@ -411,24 +415,24 @@ func (ps *PaxosServer) HandleAcceptRequest(args *AcceptRequestArgs, _ *DefaultRe
  */
 func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs, reply *DefaultReply) error{
 	//TODO
-	majority := (ps.numNodes/2 + ps.numNodes %2) - 1
+	majority := (ps.NumNodes/2 + ps.NumNodes %2) - 1
 
-	ps.numAcceptResponsesReceived ++
+	ps.NumAcceptResponsesReceived ++
 
-	if args.accepted {
-		ps.receivedAcceptResponses.PushBack(args)
+	if args.Accepted {
+		ps.ReceivedAcceptResponses.PushBack(args)
 	}
 
-	if ps.receivedAcceptResponses.Len() >= majority {
+	if ps.ReceivedAcceptResponses.Len() >= majority {
 		//TODO send commit message to everyone in the majority :)
 		//go through everyone in the majority, get each port (ps.port) and value (front of the toCommit list)
 		//and then send it to them in an rpc call
 
-		commitMsg := &CommitArgs{ps.toCommit.Front().Value.(AcceptRequestArgs).value, ps.port}
+		commitMsg := &CommitArgs{ps.ToCommit.Front().Value.(AcceptRequestArgs).Value, ps.Port}
 
-		for e:=ps.receivedAcceptResponses.Front(); e!=nil; e=e.Next(){
-			port := e.Value.(AcceptResponseArgs).port
-			conn := ps.paxosConnections[port]
+		for e:=ps.ReceivedAcceptResponses.Front(); e!=nil; e=e.Next(){
+			port := e.Value.(AcceptResponseArgs).Port
+			conn := ps.PaxosConnections[port]
 
 			err := conn.Call("PaxosServer.HandleCommit", &commitMsg, &DefaultReply{}) //todo agree that reply should be nothing
 			if err != nil {
@@ -474,15 +478,18 @@ func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *DefaultReply) error
 func (ps *PaxosServer) startMaster() error {
 
 	errRegister := rpc.RegisterName("PaxosServer", ps)
+
 	rpc.HandleHTTP()
 
 	if errRegister != nil {
+		fmt.Println("An error occured while doing rpc register", errRegister)
 		return errRegister
 	}
 
-	fmt.Println("the port in master is ", ps.port)
-	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.port))
+	fmt.Println("the port in master is ", ps.Port)
+	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.Port))
 	if errListen != nil {
+		fmt.Println(errListen)
 		return errListen
 	}
 
@@ -495,16 +502,22 @@ func (ps *PaxosServer) startMaster() error {
 		fmt.Println("Master Trying", numTries)
 		numTries++
 
-		args := &RegisterArgs{ps.port}
+		args := &RegisterArgs{ps.Port}
 
-		servers := make([]int, ps.numNodes)
+		servers := make([]int, ps.NumNodes)
 
 		reply := &RegisterReply{nil, servers}
 
 		ps.RegisterServer(args, reply)
 
-		if reply.err != nil {
-			fmt.Println(reply.err)
+		fmt.Println("NumNodes", ps.NumNodes, ps.ServerRing.NumConnected)
+
+		if ps.ServerRing.NumConnected == ps.NumNodes {
+			break
+		}
+
+		if reply.Err != nil {
+			fmt.Println(reply.Err)
 			time.Sleep(time.Second)
 		} else {
 			break
@@ -517,7 +530,9 @@ func (ps *PaxosServer) startMaster() error {
  *
  */
 func (ps *PaxosServer) startServer() error {
+	fmt.Println("IN START SLAVE")
 	errRegister := rpc.RegisterName("PaxosServer", ps)
+
 	rpc.HandleHTTP()
 	fmt.Println("handling http")
 
@@ -525,38 +540,54 @@ func (ps *PaxosServer) startServer() error {
 		return errRegister
 	}
 
-	fmt.Println("the port is ", ps.port)
-	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.port))
+	fmt.Println("the port is ", ps.Port)
+	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(ps.Port))
 
 	if errListen != nil {
+		fmt.Println("Err occured while listenening", errListen)
 		return errListen
 	}
 
 	go http.Serve(listener, nil)
 
-	fmt.Println("Masterhost port", ps.masterHostPort)
-	slave, errDial := rpc.DialHTTP("tcp", ps.masterHostPort)
+	fmt.Println("Masterhost port", ps.MasterHostPort)
 
-	if errDial != nil {
-		return errDial
-	}
+
 
 	numTries := 0
+	dialSuccess := false
+
+	var slave *rpc.Client
+	var errDial error
 
 	for {
+		if !dialSuccess {
+			slave, errDial = rpc.DialHTTP("tcp", ps.MasterHostPort)
+
+			if errDial != nil {
+				fmt.Println(errDial)
+				time.Sleep(time.Second)
+				continue
+			}
+		}
+
+		dialSuccess = true
 		numTries++
-		args := &RegisterArgs{ps.port}
+		args := &RegisterArgs{ps.Port}
 		reply := &RegisterReply{}
 
-		fmt.Println("TRYINGGG", args.port)
+		fmt.Println("TRYINGGG", args.Port)
 		errCall := slave.Call("PaxosServer.RegisterServer", args, reply)
 		fmt.Println("HEREEE")
 
+		fmt.Println("The errcall is", errCall)
+
 		if errCall != nil {
+			fmt.Println(errCall)
 			return errCall
 		}
 
-		if reply.err != nil {
+		if reply.Err != nil {
 			time.Sleep(time.Second)
 		} else {
 			break
@@ -571,7 +602,7 @@ func (ps *PaxosServer) startServer() error {
 	}
 
 	if reply.Ready {
-		ps.serverRing.servers = reply.Servers
+		ps.ServerRing.Servers = reply.Servers
 		return nil
 	}
 
