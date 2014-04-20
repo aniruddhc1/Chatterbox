@@ -1,5 +1,4 @@
 #!/bin/bash
-##!/bin/bash
 #
 #go install github.com/cmu440/chatterbox/
 #

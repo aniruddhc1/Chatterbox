@@ -6,12 +6,24 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"container/list"
 )
 
+type User struct{ //wrapper struct for extensibility
+	Username string
+	Rooms *list.List
+}
 
+type Room struct{ //wrapper struct for extensibility
+	Name string
+	Users *list.List
+}
 
 type ChatClient struct {
 	ClientConn *rpc.Client
+	Users *list.List //list of all users
+	Rooms *list.List //list of all chat rooms
+
 }
 
 type InputArgs struct {
@@ -25,7 +37,10 @@ type OutputArgs struct {
 func NewChatClient(hostport string) (*ChatClient, error) {
 	//TODO unimplemented
 
-	chatclient := ChatClient{}
+	chatclient := &ChatClient{
+		Users : list.New(),
+		Rooms : list.New(),
+	}
 
 	errRegister := rpc.RegisterName("ChatClient", &chatclient)
 	if errRegister != nil {
@@ -54,11 +69,17 @@ func NewChatClient(hostport string) (*ChatClient, error) {
 	return &chatclient, nil
 }
 
-func (*ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error {
+func (*ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error { //needs user and room
+
+
+
 	return errors.New("Not Implemented")
+
+
+
 }
 
-func (*ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error {
+func (*ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error { //needs user and room
 	return errors.New("Not Implemented")
 }
 
