@@ -1,10 +1,7 @@
 package main
 
-import (
-	"github.com/go-martini/martini"
-	"github.com/martini-contrib-master/render"
-)
-
+import "github.com/go-martini/martini"
+import "github.com/martini-contrib-master/render"
 
 func main() {
 	m := martini.Classic()
@@ -22,5 +19,8 @@ func main() {
 			r.HTML(200, "index", nil)
 		})
 
+	m.Use(martini.Static("github.com/cmu440/chatterbox/templates"))
+
 	m.Run()
 }
+
