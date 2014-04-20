@@ -95,6 +95,13 @@ func main(){
 
 	isMaster := flag.Bool("isMaster", false, "to check if its a master server or not ")
 
+	N := flag.Int("N", 0, "to specify the number of servers")
+
+	port := flag.Int("port", 0, "to specify the port number to start the master server on")
+
+	port = port
+	N = N
+
 	flag.Parse()
 
 	fmt.Println("IN MAIN", *isMaster)

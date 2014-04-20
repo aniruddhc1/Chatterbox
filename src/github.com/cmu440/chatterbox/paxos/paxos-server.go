@@ -108,7 +108,7 @@ type GetServersReply struct {
 }
 
 type SendMessageArgs struct {
-	message []byte
+	Message []byte
 }
 
 /*
@@ -253,7 +253,7 @@ func (ps *PaxosServer) SendMessage(args *SendMessageArgs, reply *DefaultReply) e
  * with a proposal ID.
  */
 func (ps *PaxosServer) ProposeRequest(args *SendMessageArgs, reply *DefaultReply) error{
-	value := args.message
+	value := args.Message
 
 	if ps.lastProposedID > ps.highestID {
 		ps.lastProposedID++
@@ -446,17 +446,17 @@ func (ps *PaxosServer) HandleAcceptResponse(args *AcceptResponseArgs, reply *Def
 /*
  *
  */
-func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *DefaultReply) ([]byte, error){
+func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *DefaultReply) error{
 	args = args
 	//TODO
 	//Basically for now just log, idk what else to do here
 
 	//Reset everything
-	for ps.toCommit.
+//	for ps.toCommit.
 
 
 
-	return args.value, errors.New("not implemented")
+	return errors.New("not implemented")
 }
 
 

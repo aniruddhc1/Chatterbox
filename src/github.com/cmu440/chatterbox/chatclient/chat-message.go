@@ -6,27 +6,27 @@ import (
 )
 
 type ChatMessage struct {
-	user string
-	room  string
-	content  string
-	timestamp  time.Time
+	User string
+	Room  string
+	Content  string
+	Timestamp  time.Time
 }
 
 
 func (msg *ChatMessage) ToString() (string, error) {
-	if msg.user == "" {
+	if msg.User == "" {
 		return "", errors.New("Message doesn't have user")
 	}
 
-	if msg.room == "" {
+	if msg.Room == "" {
 		return "", errors.New("Message doesn't have user")
 	}
 
-	if msg.content == "" {
+	if msg.Content == "" {
 		return "", errors.New("Message doesn't have content")
 	}
 
-	msgString := msg.user + "|" + msg.room + "|" + msg.content + "|" + msg.timestamp.Format(time.RFC3339Nano) + "\n"
+	msgString := msg.User + "|" + msg.Room + "|" + msg.Content + "|" + msg.Timestamp.Format(time.RFC3339Nano) + "\n"
 
 	return msgString, nil
 }
