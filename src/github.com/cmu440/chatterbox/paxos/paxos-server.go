@@ -478,7 +478,6 @@ func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *DefaultReply) error
 func (ps *PaxosServer) startMaster() error {
 
 	errRegister := rpc.RegisterName("PaxosServer", ps)
-
 	rpc.HandleHTTP()
 
 	if errRegister != nil {

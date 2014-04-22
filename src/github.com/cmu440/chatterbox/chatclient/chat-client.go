@@ -60,7 +60,7 @@ func NewChatClient(hostport string) (*ChatClient, error) {
 
 	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:8080")
 	if errDial != nil {
-		fmt.Println("Couldln't dialtest chat client", errDial)
+		fmt.Println("Couldn't dialtest chat client", errDial)
 		return nil, errDial
 	}
 
