@@ -13,7 +13,6 @@ import (
 	"fmt"
 )
 
-
 type ProposeRequestArgs struct {
 	ProposalID int
 	Port int
@@ -52,13 +51,11 @@ type DefaultReply struct {
 }
 
 type PaxosServer struct {
-	//TODO
 	NumNodes int
 
 	ReceivedMessages *list.List
 	ProposedMessage KeyValue
 	ToCommit *list.List
-
 
 	HighestID int
 	LastProposedID int
@@ -123,8 +120,6 @@ type SendMessageArgs struct {
  *
  */
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, error) {
-	//TODO
-
 	serverRing := PaxosRing{
 		Servers : make([]int, numNodes),
 		MasterHostPort : masterHostPort,
@@ -167,16 +162,14 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 		err = paxosServer.startServer()
 	}
 
-	fmt.Println("GOT HERE")
-	//dialing to all other paxos servers and storing the connection
 
+	//dialing to all other paxos servers and storing the connection
 	for i:=0; i<numNodes; i++ {
 		currPort := paxosServer.ServerRing.Servers[i]
-		fmt.Println("HERE", currPort)
 
 		if currPort == port {
 			fmt.Println("already connected so ignore")
-			continue //already connected
+			continue
 		} else {
 			serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+ strconv.Itoa(currPort))
 			if dialErr != nil {
@@ -195,7 +188,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
  * returns a nil error and a list of all the ports the paxos servers are on.
  */
 func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply) error{
-	fmt.Println("REGISTERING")
+	fmt.Println("REGISTERING", args.Port)
 	alreadyJoined := false
 	ps.ServerRingLock.Lock()
 	for i:= 0; i< ps.ServerRing.NumConnected; i++ {
@@ -210,7 +203,6 @@ func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReply) 
 	fmt.Println(ps.ServerRing.NumConnected, args.Port)
 
 	if !alreadyJoined {
-		fmt.Println("IN REGISTER", ps.ServerRing.NumConnected, args.Port)
 		ps.ServerRing.Servers[ps.ServerRing.NumConnected] = args.Port
 		ps.ServerRing.NumConnected++
 	}
