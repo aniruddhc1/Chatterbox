@@ -87,7 +87,11 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 		return errors.New("Couldn't Marshal chat message")
 	}
 
-	args := &multipaxos.SendMessageArgs{bytes}
+	args := &multipaxos.SendMessageArgs{bytes,
+									multipaxos.Tester{
+										KillStage : "",
+										KillTime : "",
+									},}
 
 	err := cclient.SendMessage(args, &multipaxos.SendMessageReplyArgs{})
 
@@ -96,6 +100,54 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 		return err
 	}
 	return nil
+}
+
+func testBasic2(cClient1, cClient2 *chatclient.ChatClient) error {
+	fmt.Println("starting testbasic2")
+
+	msg1 := chatclient.ChatMessage{"Aniruddh", "testRoom", "lololollol :D", time.Now()}
+	bytes1, marshalErr := json.Marshal(msg1)
+	if(marshalErr != nil){
+		return errors.New("error occurred while marshaling msg1 in testBasic2")
+	}
+
+	msg2 := chatclient.ChatMessage{"Soumya", "testRoom", "get out hahaa", time.Now()}
+	bytes2, marshalErr1 := json.Marshal(msg2)
+	if(marshalErr1 != nil){
+		return errors.New("error occurred while marshaling msg2 in testBasic2")
+	}
+
+	args1 := &multipaxos.SendMessageArgs{Value : bytes1,
+										Tester : multipaxos.Tester{
+											KillStage : "sendAccept",
+											KillTime : "end",
+										},}
+	args2 := &multipaxos.SendMessageArgs{Value : bytes2,
+										Tester : multipaxos.Tester{
+											KillStage : "",
+											KillTime : "",
+										},}
+
+	/*
+	killStage : "sendPropose", "sendAccept", "sendCommit"
+				"receivePropose", "receiveAccept", //todo
+				"receiveCommit" //todo
+	killTime : start, mid, end
+	*/
+
+	err := cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+
+	if(err != nil){
+		return err
+	}
+
+	err2 := cClient2.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	if(err2 != nil){
+		return err2
+	}
+
+	return nil
+
 }
 
 func main(){
@@ -111,11 +163,15 @@ func main(){
 	if *registerAll {
 		//CALL ALL TESTS
 		var cClient *chatclient.ChatClient
-		cClient, _ = chatclient.NewChatClient("localhost:2000")
-		err := TestGetServers(cClient)
-		fmt.Println(err)
+//		var cClient1 *chatclient.ChatClient
+		cClient, _ = chatclient.NewChatClient("localhost:2000", 8080)
+//		cClient1, _ = chatclient.NewChatClient("localhost:3000", 9990)
+//		err := TestGetServers(cClient)
+//		fmt.Println(err)
 		err1 := testBasic1(cClient)
 		fmt.Println(err1)
+//		err2 := testBasic2(cClient, cClient1)
+//		fmt.Println(err2)
 	} else if (*isMaster){
 		//START THE MASTER SERVER
 		_, err := multipaxos.NewPaxosServer("", *N, *port) //starting master server

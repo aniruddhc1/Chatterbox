@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"container/list"
 	"github.com/cmu440/chatterbox/multipaxos"
+	"strconv"
 )
 
 type User struct{ //wrapper struct for extensibility
@@ -35,7 +36,7 @@ type OutputArgs struct {
 
 }
 
-func NewChatClient(hostport string) (*ChatClient, error) {
+func NewChatClient(hostport string, paxosPort int) (*ChatClient, error) {
 	//TODO unimplemented
 
 	chatclient := &ChatClient{
@@ -59,7 +60,7 @@ func NewChatClient(hostport string) (*ChatClient, error) {
 
 	go http.Serve(listener, nil)
 
-	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:8080")
+	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(paxosPort))
 	if errDial != nil {
 		fmt.Println("Couldn't dialtest chat client", errDial)
 		return nil, errDial
@@ -85,7 +86,8 @@ func (cc *ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error { /
 }
 
 func (cc *ChatClient) SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
-	errCall := cc.ClientConn.Call("PaxosServer.GetServers", &args, &reply)
+	fmt.Println("Sending Message in Chat Client")
+	errCall := cc.ClientConn.Call("PaxosServer.SendMessage", &args, &reply)
 	return errCall
 }
 

@@ -1,30 +1,30 @@
 package multipaxos
 
 /* TODO
-	things left to do for paxos implentation
-	1. if the proposer is still leader after committing propose the next message in the MsgQueue
-	2. Write the function SendMessage (basically a wrapper around paxos) which gets the message
-	   from the chat client and receives an error if any step of the paxos process fails.
-	   If it fails make it start the paxos again
-	3. do the learner functions at the bottom.
- */
-
+things left to do for paxos implentation
+1. if the proposer is still leader after committing propose the next message in the MsgQueue
+2. Write the function SendMessage (basically a wrapper around paxos) which gets the message
+   from the chat client and receives an error if any step of the paxos process fails.
+   If it fails make it start the paxos again
+3. do the learner functions at the bottom.
+*/
 
 import (
+	"bytes"
 	"container/list"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
+	"os"
 	"strconv"
 	"time"
-	"bytes"
 )
 
 type KeyValuePair struct {
-	ProposalID   int
-	Value []byte
+	ProposalID int
+	Value      []byte
 }
 
 type GetServersArgs struct {
@@ -32,17 +32,25 @@ type GetServersArgs struct {
 }
 
 type GetServersReply struct {
-	Ready bool
+	Ready   bool
 	Servers []int
 }
 
 type SendMessageArgs struct {
-	Value []byte
+	Value  []byte
+	Tester Tester
+}
+
+type Tester struct {
+	KillStage string //sendPropose, sendAccept, sendCommit, receivePropose
+	//receiveAccept, receiveCommit
+	KillTime string //start, mid, end
+
 }
 
 type SendMessageReplyArgs struct {
+	//this page intentionally left blank.
 }
-
 
 type ProposeArgs struct {
 	RoundID    int
@@ -52,7 +60,7 @@ type ProposeArgs struct {
 
 type ProposeReplyArgs struct {
 	RoundID      int
-	Pair *KeyValuePair //consists of proposal id and value
+	Pair         *KeyValuePair //consists of proposal id and value
 	Accepted     bool
 	AcceptorPort int
 }
@@ -64,9 +72,9 @@ type AcceptRequestArgs struct {
 }
 
 type AcceptReplyArgs struct {
-	Accepted bool
+	Accepted     bool
 	AcceptorPort int
-	RoundID	 int
+	RoundID      int
 }
 
 type CommitArgs struct {
@@ -112,6 +120,7 @@ type paxosServer struct {
 	NumConnected   int                 //number of servers that are currently connected and active
 	RPCConnections map[int]*rpc.Client //from port number to the rpc connection so we don't have to dial everytime
 	Servers        []int               //port numbers of all the servers in the ring
+	listener       net.Listener
 
 	//Required for proposer role
 	ProposalID           int
@@ -124,10 +133,19 @@ type paxosServer struct {
 	MaxPromisedID int
 
 	//Required for learner role
-	CommittedMsgs map[int][]byte //message committed for every round of Paxos
+	CommittedMsgs     map[int][]byte //message committed for every round of Paxos
+	CommittedMsgsFile os.File
 }
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
+
+
+	file, err := os.Create(string(port)+time.Now().String())
+
+	if (err != nil){
+		fmt.Println(err)
+		return nil, err
+	}
 
 	//Initialize paxos server
 	paxosServer := &paxosServer{
@@ -150,7 +168,8 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		MaxPromisedID: 0,
 
 		//Required for learner role
-		CommittedMsgs: make(map[int][]byte),
+		CommittedMsgs:     make(map[int][]byte),
+		CommittedMsgsFile: *file,
 	}
 
 	//Register the server to RPC
@@ -167,6 +186,9 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		fmt.Println("An error occured while trying to listen", errListen)
 		return nil, errListen
 	}
+
+	paxosServer.listener = listener
+
 	go http.Serve(listener, nil)
 
 	//If the server is a slave create a connection to the master
@@ -251,13 +273,29 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 //TODO functions requred for chat client including GetServers and SendMessage
 
 func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
+	fmt.Println("in send message")
 	ps.MsgQueue.PushBack(args.Value)
 	return ps.Propose(args, reply)
 }
 
+func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) {
+	//  sendPropose, sendAccept, sendCommit, receivePropose
+	//  receiveAccept, receiveCommit
+	//	killTime string //start, mid, end
+	fmt.Println("Killing", ps.Port, "Need to stop at", tester.KillStage, tester.KillTime,
+									"Stopping at", currStage, currTime)
+	if tester.KillStage == currStage && tester.KillTime == currTime {
+		ps.listener.Close()
+		for _, conn := range ps.RPCConnections {
+			conn.Close()
+		}
+	}
+}
+
 //Functions related to Proposer
-func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error  {
-	fmt.Println("Propose")
+func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error {
+	ps.CheckKill(&args.Tester, "sendPropose", "start")
+	fmt.Println("in Propose")
 	ps.ProposalID++
 	proposeReply := &ProposeReplyArgs{}
 	majority := ps.NumNodes/2 + ps.NumNodes%2
@@ -275,6 +313,13 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 			fmt.Println("Error while calling HandleProposeRequest", err)
 			return err
 		}
+		fmt.Println("Proposing reply port", proposeReply.AcceptorPort, "round ", proposeReply.RoundID, "accepted? ",
+			proposeReply.Accepted, "soumya is ", proposeReply.Pair)
+
+		if time.Now().UnixNano()%2 == 0 {
+			ps.CheckKill(&args.Tester, "sendPropose", "mid")
+		}
+
 		if proposeReply.RoundID != ps.RoundID {
 			//TODO Do recover
 		} else if proposeReply.Accepted {
@@ -288,23 +333,27 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 	}
 
+	ps.CheckKill(&args.Tester, "sendPropose", "end")
+
 	if ps.ProposeAcceptedQueue.Len() >= majority {
 		if maxPair != nil {
-			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, maxPair.ProposalID, maxPair.Value)
+			fmt.Println("maxpair not nil, sending accept request  ", maxPair.ProposalID)
+			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, maxPair.ProposalID, maxPair.Value, &args.Tester)
 		} else {
-			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, ps.ProposalID, args.Value)
+			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, ps.ProposalID, args.Value, &args.Tester)
 		}
 	}
 
 	return errors.New("Couldn't get a majority to accept request to proposal")
 }
 
-func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte) error {
+func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte, tester *Tester) error {
 	fmt.Println("Sending Accept Requests")
+	ps.CheckKill(tester, "sendAccept", "start")
 	majority := ps.NumNodes/2 + ps.NumNodes%2
 
 	for e := acceptors.Front(); e != nil; e = e.Next() {
-		reply := e.Value.(ProposeReplyArgs)
+		reply := e.Value.(*ProposeReplyArgs)
 		conn := ps.RPCConnections[reply.AcceptorPort]
 
 		acceptArgs := &AcceptRequestArgs{
@@ -313,6 +362,10 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 			Value:      value,
 		}
 		acceptReply := &AcceptReplyArgs{}
+
+		if time.Now().UnixNano()%2 == 0 {
+			ps.CheckKill(tester, "sendAccept", "mid")
+		}
 
 		err := conn.Call("PaxosServer.HandleAcceptRequest", acceptArgs, acceptReply)
 		if err != nil {
@@ -325,19 +378,24 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 	}
 
 	if ps.AcceptedQueue.Len() >= majority {
-		return ps.SendCommit(acceptors, value)
+		ps.CheckKill(tester, "sendAccept", "end")
+		return ps.SendCommit(acceptors, value, tester)
 	}
-
 	return errors.New("Couldn't reach a majority to send the accept requests")
 }
 
-func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte) error {
+func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Tester) error {
+	ps.CheckKill(tester, "sendCommit", "start")
 	fmt.Println("Send Commit")
 	for e := acceptors.Front(); e != nil; e = e.Next() {
-		reply := e.Value.(ProposeReplyArgs)
+		reply := e.Value.(*ProposeReplyArgs)
 		conn := ps.RPCConnections[reply.AcceptorPort]
 
-		commitArgs := &CommitArgs{Value : value, RoundID : ps.RoundID}
+		if time.Now().UnixNano()%2 == 0 {
+			ps.CheckKill(tester, "sendCommit", "mid")
+		}
+
+		commitArgs := &CommitArgs{Value: value, RoundID: ps.RoundID}
 		commitReply := &CommitReplyArgs{}
 
 		err := conn.Call("PaxosServer.HandleCommit", commitArgs, commitReply)
@@ -346,6 +404,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte) error {
 			fmt.Println("error in send commit request ", err)
 		}
 	}
+	ps.CheckKill(tester, "sendCommit", "end")
 
 	return nil
 }
@@ -366,8 +425,11 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 		return nil
 	}
 	reply.Accepted = true
-	commitMsg := ps.ToCommitQueue.Front().Value.(KeyValuePair)
-	reply.Pair = &KeyValuePair{commitMsg.ProposalID, commitMsg.Value}
+	if ps.ToCommitQueue.Len() > 0 && ps.ToCommitQueue.Front() != nil {
+		commitMsg := ps.ToCommitQueue.Front().Value.(KeyValuePair)
+		fmt.Println("queue length and other things : ", ps.ToCommitQueue.Len(), commitMsg.ProposalID, commitMsg.Value)
+		reply.Pair = &KeyValuePair{commitMsg.ProposalID, commitMsg.Value}
+	}
 	return nil
 }
 
@@ -396,6 +458,10 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) er
 	fmt.Println("sending commit message")
 
 	ps.CommittedMsgs[args.RoundID] = args.Value
+	_, err := ps.CommittedMsgsFile.Write(args.Value)
+	if(err != nil){
+		return err
+	}
 
 	if ps.RoundID < args.RoundID {
 		//TODO recover state
@@ -404,7 +470,6 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) er
 	ps.RoundID++
 	ps.ProposeAcceptedQueue = list.New()
 	ps.AcceptedQueue = list.New()
-
 
 	for e := ps.ToCommitQueue.Front(); e != nil; e = e.Next() {
 		if bytes.Equal(e.Value.(KeyValuePair).Value, args.Value) {
@@ -415,7 +480,7 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) er
 	return nil
 }
 
-func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) error{
+func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) error {
 
 	if ps.NumConnected == ps.NumNodes {
 		reply.Servers = ps.Servers
@@ -424,6 +489,7 @@ func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) err
 	} else {
 		fmt.Println("number of nodes connected are ", ps.NumConnected)
 		reply.Ready = false
+
 	}
 	return nil
 }
@@ -433,4 +499,4 @@ func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) err
 /*TODO
 
 
- */
+*/
