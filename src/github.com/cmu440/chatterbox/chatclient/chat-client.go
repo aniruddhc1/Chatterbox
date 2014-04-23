@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"container/list"
+	"github.com/cmu440/chatterbox/multipaxos"
 )
 
 type User struct{ //wrapper struct for extensibility
@@ -42,7 +43,7 @@ func NewChatClient(hostport string) (*ChatClient, error) {
 		Rooms : list.New(),
 	}
 
-	errRegister := rpc.RegisterName("ChatClient", &chatclient)
+	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
 	if errRegister != nil {
 		fmt.Println("Couldln't register test chat client", errRegister)
 		return nil, errRegister
@@ -66,10 +67,10 @@ func NewChatClient(hostport string) (*ChatClient, error) {
 
 	chatclient.ClientConn = chatConn
 
-	return &chatclient, nil
+	return chatclient, nil
 }
 
-func (*ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error { //needs user and room
+func (cc *ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error { //needs user and room
 
 
 
@@ -79,10 +80,15 @@ func (*ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error { //n
 
 }
 
-func (*ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error { //needs user and room
+func (cc *ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error { //needs user and room
 	return errors.New("Not Implemented")
 }
 
-func (*ChatClient) SendMessage(args *InputArgs, reply *OutputArgs) error {
-	return errors.New("Not Implemented")
+func (cc *ChatClient) SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
+	errCall := cc.ClientConn.Call("PaxosServer.GetServers", &args, &reply)
+	return errCall
+}
+
+func (cc *ChatClient) GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
+	return cc.ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }

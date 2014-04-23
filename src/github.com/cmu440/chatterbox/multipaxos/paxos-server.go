@@ -23,9 +23,26 @@ import (
 )
 
 type KeyValuePair struct {
-	Key   int
+	ProposalID   int
 	Value []byte
 }
+
+type GetServersArgs struct {
+	//intentionally left empty
+}
+
+type GetServersReply struct {
+	Ready bool
+	Servers []int
+}
+
+type SendMessageArgs struct {
+	Value []byte
+}
+
+type SendMessageReplyArgs struct {
+}
+
 
 type ProposeArgs struct {
 	RoundID    int
@@ -35,8 +52,7 @@ type ProposeArgs struct {
 
 type ProposeReplyArgs struct {
 	RoundID      int
-	ProposalID   int
-	Value        []byte
+	Pair *KeyValuePair //consists of proposal id and value
 	Accepted     bool
 	AcceptorPort int
 }
@@ -88,7 +104,7 @@ type GetCommitMsgsReply struct {
 	//TODO
 }
 
-type PaxosServer struct {
+type paxosServer struct {
 	Port           int
 	RoundID        int
 	MasterHostPort string
@@ -111,10 +127,10 @@ type PaxosServer struct {
 	CommittedMsgs map[int][]byte //message committed for every round of Paxos
 }
 
-func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, error) {
+func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
 
 	//Initialize paxos server
-	paxosServer := &PaxosServer{
+	paxosServer := &paxosServer{
 		Port:           port,
 		RoundID:        0,
 		MasterHostPort: masterHostPort,
@@ -138,7 +154,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 	}
 
 	//Register the server to RPC
-	errRegister := rpc.RegisterName("PaxosServer", paxosServer)
+	errRegister := rpc.RegisterName("PaxosServer", Wrap(paxosServer))
 	if errRegister != nil {
 		fmt.Println("An error occured while doing rpc register", errRegister)
 		return nil, errRegister
@@ -207,7 +223,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*PaxosServer, er
 	return paxosServer, nil
 }
 
-func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyArgs) error {
+func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyArgs) error {
 	alreadyJoined := false
 
 	for i := 0; i < ps.NumConnected; i++ {
@@ -234,13 +250,20 @@ func (ps *PaxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 
 //TODO functions requred for chat client including GetServers and SendMessage
 
+func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
+	ps.MsgQueue.PushBack(args.Value)
+	return ps.Propose(args, reply)
+}
+
 //Functions related to Proposer
-func (ps *PaxosServer) Propose() error {
+func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error  {
+	fmt.Println("Propose")
 	ps.ProposalID++
 	proposeReply := &ProposeReplyArgs{}
 	majority := ps.NumNodes/2 + ps.NumNodes%2
+	var maxPair *KeyValuePair
 
-	for port, conn := range ps.RPCConnections {
+	for _, conn := range ps.RPCConnections {
 		proposeArgs := &ProposeArgs{
 			RoundID:    ps.RoundID,
 			ProposalID: ps.ProposalID,
@@ -256,20 +279,28 @@ func (ps *PaxosServer) Propose() error {
 			//TODO Do recover
 		} else if proposeReply.Accepted {
 			ps.ProposeAcceptedQueue.PushBack(proposeReply)
+			if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
+				maxPair.ProposalID = proposeReply.Pair.ProposalID
+				maxPair.Value = proposeReply.Pair.Value
+			}
 		} else {
 			continue
 		}
 	}
 
 	if ps.ProposeAcceptedQueue.Len() >= majority {
-		//TODO figure which id, and value to send with accept request
-		return ps.SendAcceptRequests(ps.ProposeAcceptedQueue)
+		if maxPair != nil {
+			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, maxPair.ProposalID, maxPair.Value)
+		} else {
+			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, ps.ProposalID, args.Value)
+		}
 	}
 
 	return errors.New("Couldn't get a majority to accept request to proposal")
 }
 
-func (ps *PaxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte) error {
+func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte) error {
+	fmt.Println("Sending Accept Requests")
 	majority := ps.NumNodes/2 + ps.NumNodes%2
 
 	for e := acceptors.Front(); e != nil; e = e.Next() {
@@ -300,7 +331,8 @@ func (ps *PaxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 	return errors.New("Couldn't reach a majority to send the accept requests")
 }
 
-func (ps *PaxosServer) SendCommit(acceptors *list.List, value []byte) error {
+func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte) error {
+	fmt.Println("Send Commit")
 	for e := acceptors.Front(); e != nil; e = e.Next() {
 		reply := e.Value.(ProposeReplyArgs)
 		conn := ps.RPCConnections[reply.AcceptorPort]
@@ -319,7 +351,8 @@ func (ps *PaxosServer) SendCommit(acceptors *list.List, value []byte) error {
 }
 
 //Functions related to Acceptor
-func (ps *PaxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error {
+func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error {
+	fmt.Println("Handle Propose Request")
 	reply.RoundID = ps.RoundID
 	reply.AcceptorPort = ps.Port
 
@@ -334,12 +367,12 @@ func (ps *PaxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 	}
 	reply.Accepted = true
 	commitMsg := ps.ToCommitQueue.Front().Value.(KeyValuePair)
-	reply.ProposalID = commitMsg.Key
-	reply.Value = commitMsg.Value
+	reply.Pair = &KeyValuePair{commitMsg.ProposalID, commitMsg.Value}
 	return nil
 }
 
-func (ps *PaxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *AcceptReplyArgs) error {
+func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *AcceptReplyArgs) error {
+	fmt.Println("Handle Accept Request")
 	reply.RoundID = ps.RoundID
 	reply.AcceptorPort = ps.Port
 
@@ -358,7 +391,10 @@ func (ps *PaxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 	return nil
 }
 
-func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) error {
+func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) error {
+
+	fmt.Println("sending commit message")
+
 	ps.CommittedMsgs[args.RoundID] = args.Value
 
 	if ps.RoundID < args.RoundID {
@@ -375,6 +411,19 @@ func (ps *PaxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) er
 			ps.ToCommitQueue.Remove(e)
 			break
 		}
+	}
+	return nil
+}
+
+func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) error{
+
+	if ps.NumConnected == ps.NumNodes {
+		reply.Servers = ps.Servers
+		fmt.Println("number of nodes connected are ", ps.NumConnected)
+		reply.Ready = true
+	} else {
+		fmt.Println("number of nodes connected are ", ps.NumConnected)
+		reply.Ready = false
 	}
 	return nil
 }
