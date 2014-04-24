@@ -1,24 +1,21 @@
 package main
 
 import (
-	"github.com/cmu440/chatterbox/paxos"
 	"fmt"
 	"errors"
 	"flag"
 	"time"
 	"github.com/cmu440/chatterbox/chatclient"
-	"encoding/json")
+	"encoding/json"
+	"github.com/cmu440/chatterbox/multipaxos"
+)
 
-var ps1 *paxos.PaxosServer
-var ps2 *paxos.PaxosServer
-var err error
-var err2 error
 
 // 												//
 //					INIT SERVERS 			 	//
 //												//
 func StartServer1(){
-	ps1, err = paxos.NewPaxosServer("", 1, 8080) //starting master server
+	_, err := multipaxos.NewPaxosServer("", 1, 8080) //starting master server
 	if(err != nil){
 		fmt.Println(err)
 	}
@@ -26,30 +23,35 @@ func StartServer1(){
 }
 
 func StartServer2(){
-	ps2, err2 = paxos.NewPaxosServer("localhost:8080", 2, 9999) // starting node
+	_, err2 := multipaxos.NewPaxosServer("localhost:8080", 2, 9999) // starting node
 
 	if(err2 != nil){
 		fmt.Println(err2)
 	}
 }
 
-//													//
-//					TEST PROPOSER 					//
-//													//
 
 /*
  * testing if GetServers returns the correct number of the servers once all have joined
  */
 func TestGetServers(cclient *chatclient.ChatClient) error{
-	args := paxos.GetServersArgs{}
-	reply := paxos.GetServersReply{}
+	args := &multipaxos.GetServersArgs{}
+	reply := &multipaxos.GetServersReply{}
 
-	errCall := cclient.ClientConn.Call("PaxosServer.GetServers", &args, &reply)
+	if cclient == nil {
+		fmt.Println("HEREEE")
+	}
+
+	errCall := cclient.GetServers(args, reply)
 
 	if errCall != nil {
 		fmt.Println("Couldln't call get servers", errCall)
 		return errCall
 	}
+
+	//													//
+	//					TEST GENERAL 					//
+	//													//
 
 	if(!reply.Ready){
 		return errors.New("servers weren't ready...?")
@@ -62,6 +64,12 @@ func TestGetServers(cclient *chatclient.ChatClient) error{
 
 
 //													//
+//					TEST PROPOSER 					//
+//													//
+
+
+
+//													//
 //					TEST ACCEPTOR					//
 //													//
 
@@ -69,24 +77,77 @@ func TestGetServers(cclient *chatclient.ChatClient) error{
  * Check that after the proposer sends a propose request the acceptor replies OK
  * if it hasn't seen anything before.
  */
-func testBasic1() error{
+func testBasic1(cclient *chatclient.ChatClient) error{
+	fmt.Println("starting testbasic1")
 	msg := chatclient.ChatMessage{"Soumya", "testRoom", "TESTING", time.Now()}
 
-	bytes, marshallErr := json.Marshal(msg)
+	bytes, marshalErr := json.Marshal(msg)
 
-	if marshallErr != nil {
+	if marshalErr != nil {
 		return errors.New("Couldn't Marshal chat message")
 	}
 
-	args := paxos.SendMessageArgs{bytes}
+	args := &multipaxos.SendMessageArgs{bytes,
+									multipaxos.Tester{
+										KillStage : "",
+										KillTime : "",
+									},}
 
-	errPropose := ps1.ProposeRequest(&args, &paxos.DefaultReply{})
+	err := cclient.SendMessage(args, &multipaxos.SendMessageReplyArgs{})
 
-	if errPropose != nil {
-		return errPropose
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func testBasic2(cClient1, cClient2 *chatclient.ChatClient) error {
+	fmt.Println("starting testbasic2")
+
+	msg1 := chatclient.ChatMessage{"Aniruddh", "testRoom", "lololollol :D", time.Now()}
+	bytes1, marshalErr := json.Marshal(msg1)
+	if(marshalErr != nil){
+		return errors.New("error occurred while marshaling msg1 in testBasic2")
+	}
+
+	msg2 := chatclient.ChatMessage{"Soumya", "testRoom", "get out hahaa", time.Now()}
+	bytes2, marshalErr1 := json.Marshal(msg2)
+	if(marshalErr1 != nil){
+		return errors.New("error occurred while marshaling msg2 in testBasic2")
+	}
+
+	args1 := &multipaxos.SendMessageArgs{Value : bytes1,
+										Tester : multipaxos.Tester{
+											KillStage : "sendAccept",
+											KillTime : "end",
+										},}
+	args2 := &multipaxos.SendMessageArgs{Value : bytes2,
+										Tester : multipaxos.Tester{
+											KillStage : "",
+											KillTime : "",
+										},}
+
+	/*
+	killStage : "sendPropose", "sendAccept", "sendCommit"
+				"receivePropose", "receiveAccept", //todo
+				"receiveCommit" //todo
+	killTime : start, mid, end
+	*/
+
+	err := cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+
+	if(err != nil){
+		return err
+	}
+
+	err2 := cClient2.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	if(err2 != nil){
+		return err2
 	}
 
 	return nil
+
 }
 
 func main(){
@@ -101,19 +162,26 @@ func main(){
 
 	if *registerAll {
 		//CALL ALL TESTS
-		cClient, _ := chatclient.NewChatClient("localhost:2000")
-		err := TestGetServers(cClient)
-		fmt.Println(err)
+		var cClient *chatclient.ChatClient
+//		var cClient1 *chatclient.ChatClient
+		cClient, _ = chatclient.NewChatClient("localhost:2000", 8080)
+//		cClient1, _ = chatclient.NewChatClient("localhost:3000", 9990)
+//		err := TestGetServers(cClient)
+//		fmt.Println(err)
+		err1 := testBasic1(cClient)
+		fmt.Println(err1)
+//		err2 := testBasic2(cClient, cClient1)
+//		fmt.Println(err2)
 	} else if (*isMaster){
 		//START THE MASTER SERVER
-		ps1, err = paxos.NewPaxosServer("", *N, *port) //starting master server
+		_, err := multipaxos.NewPaxosServer("", *N, *port) //starting master server
 		if(err != nil){
 			fmt.Println(err)
 		}
 		select{}
 	}else{
 		//START ALL OTHER SERVERS
-		ps2, err2 = paxos.NewPaxosServer("localhost:8080", *N, *port) // starting node
+		_, err2 := multipaxos.NewPaxosServer("localhost:8080", *N, *port) // starting node
 
 		if(err2 != nil){
 			fmt.Println(err2)

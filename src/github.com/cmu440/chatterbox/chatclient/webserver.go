@@ -4,7 +4,7 @@
 //import "github.com/martini-contrib-master/render"
 //
 //func main() {
-//	m := martini.Classic()
+//m := martini.Classic()
 //	m.Get("/", func() string {
 //			return "Hello world!"
 //		})
@@ -23,6 +23,7 @@
 //
 //	m.Run()
 //}
-//
+
+//package main
 
 package chatclient

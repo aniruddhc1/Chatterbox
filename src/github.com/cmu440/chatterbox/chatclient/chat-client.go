@@ -6,12 +6,26 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"container/list"
+	"github.com/cmu440/chatterbox/multipaxos"
+	"strconv"
 )
 
+type User struct{ //wrapper struct for extensibility
+	Username string
+	Rooms *list.List
+}
 
+type Room struct{ //wrapper struct for extensibility
+	Name string
+	Users *list.List
+}
 
 type ChatClient struct {
 	ClientConn *rpc.Client
+	Users *list.List //list of all users
+	Rooms *list.List //list of all chat rooms
+
 }
 
 type InputArgs struct {
@@ -22,12 +36,15 @@ type OutputArgs struct {
 
 }
 
-func NewChatClient(hostport string) (*ChatClient, error) {
+func NewChatClient(hostport string, paxosPort int) (*ChatClient, error) {
 	//TODO unimplemented
 
-	chatclient := ChatClient{}
+	chatclient := &ChatClient{
+		Users : list.New(),
+		Rooms : list.New(),
+	}
 
-	errRegister := rpc.RegisterName("ChatClient", &chatclient)
+	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
 	if errRegister != nil {
 		fmt.Println("Couldln't register test chat client", errRegister)
 		return nil, errRegister
@@ -43,25 +60,37 @@ func NewChatClient(hostport string) (*ChatClient, error) {
 
 	go http.Serve(listener, nil)
 
-	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:8080")
+	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(paxosPort))
 	if errDial != nil {
-		fmt.Println("Couldln't dialtest chat client", errDial)
+		fmt.Println("Couldn't dialtest chat client", errDial)
 		return nil, errDial
 	}
 
 	chatclient.ClientConn = chatConn
 
-	return &chatclient, nil
+	return chatclient, nil
 }
 
-func (*ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error {
+func (cc *ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error { //needs user and room
+
+
+
+	return errors.New("Not Implemented")
+
+
+
+}
+
+func (cc *ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error { //needs user and room
 	return errors.New("Not Implemented")
 }
 
-func (*ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error {
-	return errors.New("Not Implemented")
+func (cc *ChatClient) SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
+	fmt.Println("Sending Message in Chat Client")
+	errCall := cc.ClientConn.Call("PaxosServer.SendMessage", &args, &reply)
+	return errCall
 }
 
-func (*ChatClient) SendMessage(args *InputArgs, reply *OutputArgs) error {
-	return errors.New("Not Implemented")
+func (cc *ChatClient) GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
+	return cc.ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }

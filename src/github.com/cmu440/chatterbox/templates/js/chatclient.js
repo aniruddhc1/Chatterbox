@@ -16,5 +16,9 @@ function JoinRoom() {
 
 function NewUser(userName) {
 
-} 
+}  
+
+function SendMessage(msg) {
+	
+}
 

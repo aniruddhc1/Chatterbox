@@ -11,14 +11,24 @@
     
 
     <!-- Bootstrap -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap.min.css" rel="stylesheet"> 
+    <link href="css/chatclient.css" rel="stylesheet">
   </head>
   <body>
 
     
-    <div class ="bs-component">
-      <button type="button" class="btn btn-default" onclick="JoinRoom()">Join A New Room</button> 
-      <input type="text" class="form-control" id="roomName" placeholder="Room Name">
+   <div class="bs-component">
+      <div class="navbar navbar-default">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-responsive-collapse"></button>
+            <button type="button" class="btn btn-default" onclick="JoinRoom()">Join A New Room</button> 
+
+            <form class="navbar-form navbar-left">
+              <input type="text" class="form-control col-lg-8" placeholder="Room Name">
+            </form>
+            
+          </div>
+        </div>
     </div> 
     
     
