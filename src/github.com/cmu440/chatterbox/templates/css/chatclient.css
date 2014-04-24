@@ -18,11 +18,10 @@
 }
 
 #chatbox {
-	opacity: 1
 	width: 900px;  
 	height: 500px;
 	border-color: #fff;  
-	background-color: #375a7f;  
+	background-color: rgba(55, 90, 127, 0.4);  
 	margin-left: 170px;  
 	margin-right: 170px; 
 	margin-top: 30px; 
@@ -30,7 +29,7 @@
 } 
 
 #messages {
-	background-color: #EDF1F2;  
+	background-color: rgba(237, 241, 242, 0.6);  
 	margin-top: 20px;  
 	margin-left: 30px; 
 	margin-right: 30px;  
@@ -55,7 +54,8 @@ h7 {
 	border:6px solid;
 	border-radius:25px;  
 	border-color: #454B4D; 
-	height: 300px; 
+	height: 300px;  
+	background-color: rgba(204,204,204,0.2)
 } 
 
 #container {
