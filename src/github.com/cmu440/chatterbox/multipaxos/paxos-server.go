@@ -312,7 +312,7 @@ func (ps *paxosServer) SendRecover() error {
 		}
 	}
 
-	//check that all logs are consistent and update this servers logs 
+	//check that all logs are consistent and update this servers logs
 	for i:=ps.RoundID; i<maxRound; i++ {
 		//check to make sure that all of them are the same for that round id
 		var val []bytes
@@ -336,7 +336,16 @@ func (ps *paxosServer) SendRecover() error {
 }
 
 func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs) error {
-	//TODO
+	//If this server is behind the server trying to recover then first recover yourself 
+	if args.RoundID < ps.RoundID {
+		err := ps.SendRecover() 
+		if err != nil {
+			return  errors.New("Couldn't recover this one so cant send updated logs")
+		}
+	}
+
+	reply.RoundID = ps.RoundID
+	reply.CommittedValues = ps.CommittedMsgs  
 	return nil
 }
 
