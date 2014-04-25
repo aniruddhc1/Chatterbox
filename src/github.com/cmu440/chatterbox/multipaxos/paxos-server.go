@@ -269,7 +269,7 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return err
 }
 
-//TODO functions requred for chat client including GetServers and SendMessage
+//TODO functions required for chat client including GetServers and SendMessage
 
 func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
 	fmt.Println("in send message")

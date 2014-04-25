@@ -9,16 +9,21 @@ import (
 	"container/list"
 	"github.com/cmu440/chatterbox/multipaxos"
 	"strconv"
+	"code.google.com/p/go.net/websocket"
+	"github.com/martini-contrib-master/web"
 )
 
 type User struct{ //wrapper struct for extensibility
 	Username string
 	Rooms *list.List
+	ActiveRoom Room
+	Connection *websocket.Conn
 }
 
 type Room struct{ //wrapper struct for extensibility
 	Name string
 	Users *list.List
+	//option to close the chat room?
 }
 
 type ChatClient struct {
@@ -29,12 +34,14 @@ type ChatClient struct {
 }
 
 type InputArgs struct {
-	Value string
+	ws *websocket.Conn
 }
 
 type OutputArgs struct {
 
 }
+
+var currentRoom *Room = &Room{}
 
 func NewChatClient(hostport string, paxosPort int) (*ChatClient, error) {
 	//TODO unimplemented
@@ -46,7 +53,7 @@ func NewChatClient(hostport string, paxosPort int) (*ChatClient, error) {
 
 	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
 	if errRegister != nil {
-		fmt.Println("Couldln't register test chat client", errRegister)
+		fmt.Println("Couldln' t register test chat client", errRegister)
 		return nil, errRegister
 	}
 
@@ -72,14 +79,36 @@ func NewChatClient(hostport string, paxosPort int) (*ChatClient, error) {
 }
 
 func (cc *ChatClient) CreateNewUser(args *InputArgs, reply *OutputArgs) error { //needs user and room
+	username := args.ws.Request().URL.Query().Get("username")
 
+	if username == ""{
+		return errors.New("username is invalid")
+	}
 
+	user := &User{
+		Username : username,
+		Connection : args.ws,
+		ActiveRoom : currentRoom,
+		Rooms : list.New().PushBack(currentRoom),
+	}
 
-	return errors.New("Not Implemented")
+	currentRoom.Users.PushBack(user)
+
 
 
 
 }
+
+
+func NewChatRoom(){
+	currentRoom := &Room{
+		Name : "",
+		Users : list.New(),
+	}
+	return currentRoom
+}
+
+func (cc *chatClient)
 
 func (cc *ChatClient) JoinChatRoom(args *InputArgs, reply *OutputArgs) error { //needs user and room
 	return errors.New("Not Implemented")
