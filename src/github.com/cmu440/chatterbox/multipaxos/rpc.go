@@ -1,6 +1,7 @@
 package multipaxos
 
 type RemotePaxosServer interface {
+	HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs) error
 	RegisterServer(args *RegisterArgs, reply *RegisterReplyArgs) error
 	SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error
 	HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error
