@@ -2,11 +2,11 @@ package multipaxos
 
 /* TODO
 things left to do for paxos implentation
-1. if the proposer is still leader after committing propose the next message in the MsgQueue
 2. Write the function SendMessage (basically a wrapper around paxos) which gets the message
    from the chat client and receives an error if any step of the paxos process fails.
    If it fails make it start the paxos again
 3. do the learner functions at the bottom.
+4. Do the exponential backoff stuff to prevent livelock
 */
 
 import (
@@ -42,10 +42,8 @@ type SendMessageArgs struct {
 }
 
 type Tester struct {
-	KillStage string //sendPropose, sendAccept, sendCommit, receivePropose
-	//receiveAccept, receiveCommit
+	KillStage string //sendPropose, sendAccept, sendCommit, receivePropose, receiveAccept, receiveCommit
 	KillTime string //start, mid, end
-
 }
 
 type SendMessageReplyArgs struct {
@@ -92,7 +90,7 @@ type RecoverArgs struct {
 
 type RecoverReplyArgs struct {
 	RoundID int
-	value   []byte
+	CommittedValues map[int] []byte
 }
 
 type RegisterArgs struct {
@@ -172,7 +170,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		CommittedMsgsFile: *file,
 	}
 
-	//Register the server to RPC
+	//Register the server http://angusmacdonald.me/writing/paxos-by-example/to RPC
 	errRegister := rpc.RegisterName("PaxosServer", Wrap(paxosServer))
 	if errRegister != nil {
 		fmt.Println("An error occured while doing rpc register", errRegister)
@@ -292,6 +290,56 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	}
 }
 
+
+func (ps *paxosServer) SendRecover() error {
+	logs := make(map[int]*RecoverReplyArgs)
+	var maxRound int
+
+	for port, conn := range ps.RPCConnections {
+		args := &RecoverArgs{ps.RoundID}
+		reply := &RecoverReplyArgs{}
+
+		err := conn.Call("PaxosServer.HandleRecover", args, reply)
+
+		if err != nil {
+			fmt.Println("Error occured while calling Handle Recover", err)
+			return err
+		}
+
+		logs[port] = reply
+		if maxRound < reply.RoundID {
+			maxRound = reply.RoundID
+		}
+	}
+
+	//check that all logs are consistent and update this servers logs 
+	for i:=ps.RoundID; i<maxRound; i++ {
+		//check to make sure that all of them are the same for that round id
+		var val []bytes
+		for port, log := range logs {
+			if log.RoundID < i {
+				if val == nil {
+					val = log.CommittedValues
+				}
+				if log.CommittedValues[i] != log.CommittedValues {
+					//This should never happen
+					return errors.New("Paxos server " + strconv.Itoa(port) + " logs are not correct")
+				}
+			}
+		}
+
+		ps.CommittedMsgs[ps.RoundID] = val
+		ps.RoundID++
+	}
+
+	return nil
+}
+
+func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs) error {
+	//TODO
+	return nil
+}
+
 //Functions related to Proposer
 func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error {
 	ps.CheckKill(&args.Tester, "sendPropose", "start")
@@ -321,7 +369,11 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 
 		if proposeReply.RoundID != ps.RoundID {
-			//TODO Do recover
+			err := ps.SendRecover()
+			if err != nil {
+				fmt.Println("Couldn't recover", err)
+			}
+
 		} else if proposeReply.Accepted {
 			ps.ProposeAcceptedQueue.PushBack(proposeReply)
 			if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
