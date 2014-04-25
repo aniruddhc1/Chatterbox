@@ -268,14 +268,13 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return err
 }
 
-//TODO functions requred for chat client including GetServers and SendMessage
-
 func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
 	fmt.Println("in send message")
 	ps.MsgQueue.PushBack(args.Value)
 	return ps.Propose(args, reply)
 }
 
+//Functions related to Testing
 func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) {
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
@@ -291,6 +290,7 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 }
 
 
+//Functions related to Recovery
 func (ps *paxosServer) SendRecover() error {
 	logs := make(map[int]*RecoverReplyArgs)
 	var maxRound int
@@ -345,7 +345,7 @@ func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs)
 	}
 
 	reply.RoundID = ps.RoundID
-	reply.CommittedValues = ps.CommittedMsgs  
+	reply.CommittedValues = ps.CommittedMsgs
 	return nil
 }
 
@@ -382,7 +382,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 			if err != nil {
 				fmt.Println("Couldn't recover", err)
 			}
-
 		} else if proposeReply.Accepted {
 			ps.ProposeAcceptedQueue.PushBack(proposeReply)
 			if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
@@ -480,7 +479,11 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 		reply.Accepted = false
 		return nil
 	} else if args.RoundID > ps.RoundID {
-		//TODO recover state
+		err := ps.SendRecover()
+		if err != nil {
+			fmt.Println("Paxos Server", ps.Port, "was behind and couldn't recover properly")
+			return err
+		}
 	} else if ps.MaxPromisedID >= args.ProposalID {
 		reply.Accepted = false
 		return nil
@@ -503,7 +506,10 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 		reply.Accepted = false
 		return nil
 	} else if args.RoundID > ps.RoundID {
-		//TODO recover state
+		err := ps.SendRecover()
+		if err != nil {
+			fmt.Println("Couldn't recover", err)
+		}
 	} else if ps.MaxPromisedID >= args.ProposalID {
 		reply.Accepted = false
 		return nil
@@ -525,7 +531,10 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) er
 	}
 
 	if ps.RoundID < args.RoundID {
-		//TODO recover state
+		err := ps.SendRecover()
+		if err != nil {
+			fmt.Println("Couldn't recover", err)
+		}
 	}
 
 	ps.RoundID++
@@ -555,9 +564,3 @@ func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) err
 	return nil
 }
 
-//Functions related to Learner
-
-/*TODO
-
-
-*/
