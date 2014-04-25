@@ -1,12 +1,14 @@
 package multipaxos
 
-/* TODO
-things left to do for paxos implentation
-2. Write the function SendMessage (basically a wrapper around paxos) which gets the message
+/* TODO Things left to do for paxos implentation
+1. Write the function SendMessage (basically a wrapper around paxos) which gets the message
    from the chat client and receives an error if any step of the paxos process fails.
    If it fails make it start the paxos again
-3. do the learner functions at the bottom.
-4. Do the exponential backoff stuff to prevent livelock
+2. Do the exponential backoff stuff to prevent livelock
+3. Change recovery from logs to a complete file based log system
+4. Write a lot more tests,
+5. Change testing to not only just killing but also like sleeping to make a server fall behind
+6.
 */
 
 import (
@@ -269,7 +271,6 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return err
 }
 
-//TODO functions required for chat client including GetServers and SendMessage
 
 func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
 	fmt.Println("in send message")
@@ -277,6 +278,7 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 	return ps.Propose(args, reply)
 }
 
+//Functions related to Testing
 func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) {
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
@@ -292,6 +294,7 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 }
 
 
+//Functions related to Recovery
 func (ps *paxosServer) SendRecover() error {
 	logs := make(map[int]*RecoverReplyArgs)
 	var maxRound int
@@ -346,7 +349,7 @@ func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs)
 	}
 
 	reply.RoundID = ps.RoundID
-	reply.CommittedValues = ps.CommittedMsgs  
+	reply.CommittedValues = ps.CommittedMsgs
 	return nil
 }
 
@@ -383,7 +386,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 			if err != nil {
 				fmt.Println("Couldn't recover", err)
 			}
-
 		} else if proposeReply.Accepted {
 			ps.ProposeAcceptedQueue.PushBack(proposeReply)
 			if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
@@ -481,7 +483,11 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 		reply.Accepted = false
 		return nil
 	} else if args.RoundID > ps.RoundID {
-		//TODO recover state
+		err := ps.SendRecover()
+		if err != nil {
+			fmt.Println("Paxos Server", ps.Port, "was behind and couldn't recover properly")
+			return err
+		}
 	} else if ps.MaxPromisedID >= args.ProposalID {
 		reply.Accepted = false
 		return nil
@@ -504,7 +510,10 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 		reply.Accepted = false
 		return nil
 	} else if args.RoundID > ps.RoundID {
-		//TODO recover state
+		err := ps.SendRecover()
+		if err != nil {
+			fmt.Println("Couldn't recover", err)
+		}
 	} else if ps.MaxPromisedID >= args.ProposalID {
 		reply.Accepted = false
 		return nil
@@ -515,8 +524,7 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 	return nil
 }
 
-func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) error {
-
+func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error {
 	fmt.Println("sending commit message")
 
 	ps.CommittedMsgs[args.RoundID] = args.Value
@@ -526,7 +534,10 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) er
 	}
 
 	if ps.RoundID < args.RoundID {
-		//TODO recover state
+		err := ps.SendRecover()
+		if err != nil {
+			fmt.Println("Couldn't recover", err)
+		}
 	}
 
 	ps.RoundID++
@@ -556,9 +567,3 @@ func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) err
 	return nil
 }
 
-//Functions related to Learner
-
-/*TODO
-
-
-*/
