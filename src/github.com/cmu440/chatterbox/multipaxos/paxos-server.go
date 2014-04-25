@@ -271,6 +271,15 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return err
 }
 
+type FileReply struct{
+	file os.File
+}
+
+func (ps *paxosServer) ServeMessageFile(args *CommitReplyArgs, reply *FileReply) error{
+	reply.file = ps.CommittedMsgsFile
+
+	return nil
+}
 
 func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
 	fmt.Println("in send message")
