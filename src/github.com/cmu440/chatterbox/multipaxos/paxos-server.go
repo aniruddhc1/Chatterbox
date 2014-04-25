@@ -1,12 +1,14 @@
 package multipaxos
 
-/* TODO
-things left to do for paxos implentation
-2. Write the function SendMessage (basically a wrapper around paxos) which gets the message
+/* TODO Things left to do for paxos implentation
+1. Write the function SendMessage (basically a wrapper around paxos) which gets the message
    from the chat client and receives an error if any step of the paxos process fails.
    If it fails make it start the paxos again
-3. do the learner functions at the bottom.
-4. Do the exponential backoff stuff to prevent livelock
+2. Do the exponential backoff stuff to prevent livelock
+3. Change recovery from logs to a complete file based log system
+4. Write a lot more tests,
+5. Change testing to not only just killing but also like sleeping to make a server fall behind
+6.
 */
 
 import (
@@ -520,8 +522,7 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 	return nil
 }
 
-func (ps *paxosServer) HandleCommit(args *CommitArgs, reply *CommitReplyArgs) error {
-
+func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error {
 	fmt.Println("sending commit message")
 
 	ps.CommittedMsgs[args.RoundID] = args.Value
