@@ -328,13 +328,14 @@ func (ps *paxosServer) SendRecover() error {
 	//check that all logs are consistent and update this servers logs
 	for i:=ps.RoundID; i<maxRound; i++ {
 		//check to make sure that all of them are the same for that round id
-		var val []bytes
+		var val []byte
 		for port, log := range logs {
 			if log.RoundID < i {
 				if val == nil {
-					val = log.CommittedValues
+
+					val = log.CommittedValues[i]
 				}
-				if log.CommittedValues[i] != log.CommittedValues {
+				if bytes.Equal(log.CommittedValues[i], val) {
 					//This should never happen
 					return errors.New("Paxos server " + strconv.Itoa(port) + " logs are not correct")
 				}
