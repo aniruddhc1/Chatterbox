@@ -140,7 +140,6 @@ type paxosServer struct {
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
 
-
 	file, err := os.Create(string(port)+time.Now().String())
 
 	if (err != nil){

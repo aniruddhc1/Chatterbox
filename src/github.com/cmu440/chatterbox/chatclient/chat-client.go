@@ -6,6 +6,7 @@ import (
 	"container/list"
 	"github.com/cmu440/chatterbox/multipaxos"
 	"errors"
+	"encoding/json"
 )
 
 type User struct{
@@ -35,7 +36,8 @@ var PaxosServers []multipaxos.PaxosServer
 var Hostport string
 
 func NewChatClient(hostport string) {
-	//TODO setup ClientConn, and Paxos Servers i
+	//TODO setup ClientConn, and Paxos Servers
+
 }
 
 //TODO called by the http.Handler when we set up the rendering stuff
@@ -44,8 +46,10 @@ func NewUser(ws *websocket.Conn) error {
 	username := ws.Request().URL.Query().Get("username")
 
 	if username == "" {
-		//TODO send error to websocket
-		return errors.New("Can't have a user with out a username")
+		err := errors.New("invalid input for user")
+		marshalled, err := json.Marshal(err)
+		ws.Write(marshalled)
+		return err
 	}
 
 	joiningUser := &User{
@@ -84,19 +88,3 @@ func SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessage
 func  GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
 	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
