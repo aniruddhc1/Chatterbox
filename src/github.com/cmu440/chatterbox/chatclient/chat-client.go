@@ -41,9 +41,6 @@ var ClientConn *rpc.Client
 var PaxosServers []multipaxos.PaxosServer
 var Hostport string
 
-func NewChatClient(hostport string) {
-	//TODO setup ClientConn, and Paxos Servers
-
 func NewChatClient(hostport string, paxosPort int) (*ChatClient, error){
 	//TODO setup ClientConn, and Paxos Servers
 	chatclient := &ChatClient{}
