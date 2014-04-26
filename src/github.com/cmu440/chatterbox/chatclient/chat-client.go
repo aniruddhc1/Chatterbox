@@ -6,7 +6,11 @@ import (
 	"container/list"
 	"github.com/cmu440/chatterbox/multipaxos"
 	"errors"
-	"encoding/json"
+
+	"net/rpc"
+	"net/http"
+	"strconv"
+	"net"
 )
 
 type User struct{
@@ -19,8 +23,6 @@ type User struct{
 
 type ChatRoom struct{
 	Users map[string]*User
-	Broadcast chan Message
-
 }
 
 type Message struct{
@@ -29,8 +31,12 @@ type Message struct{
 	Contents string
 }
 
+type ChatClient struct {
+
+}
+
 var Rooms *list.List		//list of Chatroom objects
-var Users map[string] User 	//list of UserObjects
+var Users map[string] *User 	//list of UserObjects
 var ClientConn *rpc.Client
 var PaxosServers []multipaxos.PaxosServer
 var Hostport string
@@ -38,7 +44,49 @@ var Hostport string
 func NewChatClient(hostport string) {
 	//TODO setup ClientConn, and Paxos Servers
 
+func NewChatClient(hostport string, paxosPort int) (*ChatClient, error){
+	//TODO setup ClientConn, and Paxos Servers
+	chatclient := &ChatClient{}
+
+	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
+	if errRegister != nil {
+		fmt.Println("Couldln't register test chat client", errRegister)
+		return nil, errRegister
+	}
+
+	rpc.HandleHTTP()
+	listener, errListen := net.Listen("tcp", hostport)
+
+	if errListen != nil {
+		fmt.Println("Couldln't listen test chat client", errListen)
+		return nil, errListen
+	}
+
+	go http.Serve(listener, nil)
+
+	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(paxosPort))
+	if errDial != nil {
+		fmt.Println("Couldn't dialtest chat client", errDial)
+		return nil, errDial
+	}
+
+	ClientConn = chatConn
+
+	return chatclient, nil
+
+	return &ChatClient{}, nil
 }
+
+func (cc *ChatClient) GetRooms() error {
+	//TODO
+	return errors.New("Unimplemented")
+}
+
+func (cc *ChatClient) GetUsers() error {
+	//TODO
+	return errors.New("Unimplemented")
+}
+
 
 //TODO called by the http.Handler when we set up the rendering stuff
 func NewUser(ws *websocket.Conn) error {
@@ -60,7 +108,7 @@ func NewUser(ws *websocket.Conn) error {
 	Users[username] = joiningUser
 
 	go joiningUser.GetInfoFromUser(ws)
-	go joiningUser.GetSendMessagesToUser()
+	go joiningUser.SendMessagesToUser()
 
 	return nil
 }
@@ -74,17 +122,17 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 
 func (user *User) SendMessagesToUser () {
 	for {
-		//TODO every 2 seconds get the logs and get diff and send new messages to the gui 
+		//TODO every 2 seconds get the logs and get diff and send new messages to the gui
 	}
 }
 
 
-func SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
+func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
 	fmt.Println("Sending Message in Chat Client")
 	errCall := ClientConn.Call("PaxosServer.SendMessage", &args, &reply)
 	return errCall
 }
 
-func  GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
+func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
 	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }

@@ -163,15 +163,12 @@ func main(){
 	if *registerAll {
 		//CALL ALL TESTS
 		var cClient *chatclient.ChatClient
-//		var cClient1 *chatclient.ChatClient
 		cClient, _ = chatclient.NewChatClient("localhost:2000", 8080)
-//		cClient1, _ = chatclient.NewChatClient("localhost:3000", 9990)
-//		err := TestGetServers(cClient)
-//		fmt.Println(err)
-		err1 := testBasic1(cClient)
-		fmt.Println(err1)
-//		err2 := testBasic2(cClient, cClient1)
-//		fmt.Println(err2)
+		err := TestGetServers(cClient)
+		fmt.Println(err)
+
+		//err1 := testBasic1(cClient)
+		//fmt.Println(err1)
 	} else if (*isMaster){
 		//START THE MASTER SERVER
 		_, err := multipaxos.NewPaxosServer("", *N, *port) //starting master server
