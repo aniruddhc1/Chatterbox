@@ -41,7 +41,7 @@ var PaxosServers []multipaxos.PaxosServer
 var Hostport string
 
 
-func NewChatClient(hostport string, paxosPort int) (*ChatClient, error){
+func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 	//TODO setup ClientConn, and Paxos Servers
 
 	chatclient := &ChatClient{}
@@ -53,7 +53,7 @@ func NewChatClient(hostport string, paxosPort int) (*ChatClient, error){
 	}
 
 	rpc.HandleHTTP()
-	listener, errListen := net.Listen("tcp", hostport)
+	listener, errListen := net.Listen("tcp", ":"+port)
 
 	if errListen != nil {
 		fmt.Println("Couldln't listen test chat client", errListen)
@@ -103,8 +103,8 @@ func NewUser(ws *websocket.Conn) error {
 
 	Users[username] = joiningUser
 
-	go joiningUser.GetInfoFromUser(ws)
-	go joiningUser.SendMessagesToUser()
+	//go joiningUser.GetInfoFromUser(ws)
+	//go joiningUser.SendMessagesToUser()
 
 	return nil
 }

@@ -163,7 +163,7 @@ func main(){
 	if *registerAll {
 		//CALL ALL TESTS
 		var cClient *chatclient.ChatClient
-		cClient, _ = chatclient.NewChatClient("localhost:2000", 8080)
+		cClient, _ = chatclient.NewChatClient("2000", 8080)
 		err := TestGetServers(cClient)
 		fmt.Println(err)
 
