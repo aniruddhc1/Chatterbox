@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"net"
+	"encoding/json"
 )
 
 type User struct{
@@ -42,8 +43,8 @@ var Hostport string
 
 
 func NewChatClient(port string, paxosPort int) (*ChatClient, error){
-	//TODO setup ClientConn, and Paxos Servers
 
+	//TODO setup ClientConn, and Paxos Servers
 	chatclient := &ChatClient{}
 
 	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
@@ -92,8 +93,10 @@ func NewUser(ws *websocket.Conn) error {
 	username := ws.Request().URL.Query().Get("username")
 
 	if username == "" {
-		//TODO send error to websocket
-		return errors.New("Can't have a user with out a username")
+		err := errors.New("invalid input for user")
+		marshalled, err := json.Marshal(err)
+		ws.Write(marshalled)
+		return err
 	}
 
 	joiningUser := &User{
@@ -132,19 +135,3 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
 	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
