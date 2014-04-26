@@ -1,14 +1,15 @@
 package handlers
 
 import (
-	"github.com/sunfmin/mangotemplate"
+	"mangotemplate"
 	"mango"
 	"net/http"
 	"html/template"
-}
+)
 
 type RenderData struct{
 	Username string
+	WebHost string
 }
 
 type Provider struct{
@@ -20,7 +21,7 @@ type Header struct{
 }
 
 func Home(env Env) (status Status, header Headers, body Body){
-	mangotemplate.ForRender(env, "templates/startPage.html", nil)
+	mangotemplate.ForRender(env, "templates/startPage", nil)
 	header = Headers{}
 	return
 }
@@ -29,10 +30,10 @@ func Home(env Env) (status Status, header Headers, body Body){
 func Join (env Env) (status Status, header Headers, body Body){
 	username := env.Request().FormValue("username")
 	if(username == ""){
-		return Redirect(http.StatusFound, "/")
+		return mango.Redirect(http.StatusFound, "/")
 	}
 
-	mangotemplate.ForRender(env, "chats/index", &RenderData{Username : username})
+	mangotemplate.ForRender(env, "chats/index", &RenderData{Username : username, WebHost : env.Request().Host})
 	header := Headers{}
 	return
 }
