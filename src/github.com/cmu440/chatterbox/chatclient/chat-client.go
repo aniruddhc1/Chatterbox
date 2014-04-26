@@ -2,23 +2,22 @@ package chatclient
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"fmt"
-	"net/rpc"
+	"fmt"  
+	"container/list"
+	"github.com/cmu440/chatterbox/multipaxos"
+	"errors"
 )
 
-type JoiningUser struct{
-	CurrRoom *CurrRoom
-	Connection *websocket.Conn
-	Name User
-	Send chan Message
-}
-
 type User struct{
-	Name string
+	Connection *websocket.Conn
+	Name string 
+	Send chan Message
+	Rooms *list.List //list of rooms a user is joined to
+	chanMessage chan string
 }
 
-type CurrRoom struct{
-	Users map[string]*JoiningUser
+type ChatRoom struct{
+	Users map[string]*User
 	Broadcast chan Message
 
 }
@@ -29,71 +28,61 @@ type Message struct{
 	Contents string
 }
 
-func StartChatRoom(){
-	activeRoom := &CurrRoom{
-		Users : make(map[string]*JoiningUser),
-		Broadcast : make(chan Message),
-	}
-	go activeRoom.Run()
+var Rooms *list.List		//list of Chatroom objects
+var Users map[string] User 	//list of UserObjects
+var ClientConn *rpc.Client
+var PaxosServers []multipaxos.PaxosServer
+var Hostport string
+
+func NewChatClient(hostport string) {
+	//TODO setup ClientConn, and Paxos Servers i
 }
 
-func (chatRoom *CurrRoom) Run(){
-	for{
-		select{
-		case msg := <-chatRoom.Broadcast:
-			for _, user := chatRoom.Users{
-				user.Send <- msg
-			}
-		//close case
-		}
-	}
-}
+//TODO called by the http.Handler when we set up the rendering stuff
+func NewUser(ws *websocket.Conn) error {
 
-var activeRoom *CurrRoom = &CurrRoom{}
-
-func StartConnection(ws *websocket.Conn){
 	username := ws.Request().URL.Query().Get("username")
 
 	if username == "" {
-		return
+		//TODO send error to websocket
+		return errors.New("Can't have a user with out a username")
 	}
 
-	joiningUser := &JoiningUser{
-		CurrRoom: activeRoom,
+	joiningUser := &User{
 		Connection : ws,
 		Name : username,
 	}
 
-	activeRoom.Users[username] = joiningUser
+	Users[username] = joiningUser
 
-	go joiningUser.ToClient()
+	go joiningUser.GetInfoFromUser(ws)
+	go joiningUser.GetSendMessagesToUser()
 
-	joiningUser.FromClient()
-
-	//stop chatroom
-
+	return nil
 }
 
-func (user *JoiningUser) ToClient(){
-
-	//simple rpc call to sendMessage in paxos server
-
-
-}
-
-func (user *JoiningUser) FromClient(){
-
-	//make rpc call to paxos server, read the file here
-
-	for{
-		var message string
-
-		if err != nil{
-			fmt.Println(err)
-		}
-
-
+func (user *User) GetInfoFromUser (ws *websocket.Conn) {
+	for {
+		//TODO RECEIVE messages from user and if the message is to join a new room update stats
+		//else if its  a message call SendMessage
 	}
+}
+
+func (user *User) SendMessagesToUser () {
+	for {
+		//TODO every 2 seconds get the logs and get diff and send new messages to the gui 
+	}
+}
+
+
+func SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
+	fmt.Println("Sending Message in Chat Client")
+	errCall := ClientConn.Call("PaxosServer.SendMessage", &args, &reply)
+	return errCall
+}
+
+func  GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
+	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }
 
 

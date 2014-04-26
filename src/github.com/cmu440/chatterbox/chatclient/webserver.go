@@ -1,5 +1,5 @@
-package main
-
+package chatclient
+/*
 import (
 	"github.com/cmu440/chatterbox/handlers"
 	"net/http"
@@ -30,3 +30,4 @@ func main(){
 func handleAssets(writer http.ResponseWriter, request *http.Request){
 	http.ServeFile(writer, request, request.URL.Path[len("/"):])
 }
+*/

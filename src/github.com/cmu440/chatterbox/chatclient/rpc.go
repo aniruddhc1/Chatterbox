@@ -4,8 +4,6 @@ package chatclient
 import "github.com/cmu440/chatterbox/multipaxos"
 
 type RemoteChatClient interface {
-	CreateNewUser(args *InputArgs, reply *OutputArgs) error
-	JoinChatRoom(args *InputArgs, reply *OutputArgs) error
 	SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error
 	GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error
 }
