@@ -190,7 +190,7 @@ func (user *User) SendMessagesToUser() error{
 
 
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
-	fmt.Println("Sending Message in Chat Client")
+	fmt.Println("Sending Message in Chat Client", args.PaxosPort)
 	conn := PaxosServerConnections[args.PaxosPort]
 	errCall := conn.Call("PaxosServer.SendMessage", &args, &reply)
 	return errCall

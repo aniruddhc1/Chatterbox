@@ -121,7 +121,7 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 
 	//TODO this is working but Ani will create a function that will look at the log file before first send message
 	//make sure that after this send message file is not modified
-	//then make sure that after second send message that msg21 is in file not msg2! 
+	//then make sure that after second send message that msg1 is in file not msg2!
 
 	return nil
 }
@@ -130,7 +130,74 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 /*
  *
  */
-func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
+func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int) error {
+	msg1 := chatclient.ChatMessage{"Srini", "testRoom", "lololollol :D", time.Now()}
+	bytes1, marshalErr := json.Marshal(msg1)
+	if(marshalErr != nil){
+		return errors.New("error occurred while marshaling msg1 in testBasic2")
+	}
+
+	msg2 := chatclient.ChatMessage{"Taran", "testRoom", "get out hahaa", time.Now()}
+	bytes2, marshalErr1 := json.Marshal(msg2)
+	if(marshalErr1 != nil){
+		return errors.New("error occurred while marshaling msg2 in testBasic2")
+	}
+
+
+	msg3 := chatclient.ChatMessage{"Sally", "testRoom", "cool stories", time.Now()}
+	bytes3, marshalErr2 := json.Marshal(msg3)
+	if(marshalErr2 != nil){
+		return errors.New("error occurred while marshaling msg3 in testBasic2")
+	}
+
+	args1 := &multipaxos.SendMessageArgs{Value : bytes1,
+		Tester : multipaxos.Tester{
+			Stage : "sendPropose",
+			Time : "start",
+			Kill : false,
+			SleepTime : 5,
+		},
+		PaxosPort : port1}
+
+	args2 := &multipaxos.SendMessageArgs{Value : bytes2,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port2}
+
+
+	args3 := &multipaxos.SendMessageArgs{Value : bytes3,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort: port3}
+
+	go cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+
+	time.Sleep(time.Second * 3)
+	err2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	if(err2 != nil){
+		fmt.Println("Error 2", err2)
+		return err2
+	}
+
+	err3 := cClient1.SendMessage(args3, &multipaxos.SendMessageReplyArgs{})
+	if(err3 != nil){
+		fmt.Println("Error 3", err3)
+		return err3
+	}
+
+	time.Sleep(time.Second*2)
+	//TODO send the first one make and it wait right before it sends accept requests
+	//then do send args 2 while its waiting
+	//then wait for like 3 seconds nd try
+	//sending args 3
 
 	return nil
 }
@@ -156,7 +223,7 @@ func main(){
 		err := TestGetServers(cClient)
 		fmt.Println(err)
 
-
+		/*
 		fmt.Println("TEST_BASIC_1")
 		err1 := testBasic1(cClient)
 		fmt.Println(err1)
@@ -164,6 +231,12 @@ func main(){
 		fmt.Println("TEST_BASIC_2")
 		err2 := testBasic2(cClient, 8080, 9990)
 		fmt.Println(err2)
+		*/
+
+		fmt.Println("TEST_BASIC_3")
+		err3 := testBasic3(cClient, 8080, 9990, 8081)
+		fmt.Println(err3)
+
 
 	} else if (*isMaster){
 		//START THE MASTER SERVER
