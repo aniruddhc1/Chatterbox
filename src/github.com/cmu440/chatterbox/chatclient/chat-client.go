@@ -38,6 +38,7 @@ type ChatClient struct {
 
 }
 
+
 var Rooms *list.List		//list of Chatroom objects
 var Users map[string] *User 	//list of UserObjects
 var ClientConn *rpc.Client
@@ -162,13 +163,13 @@ func (user *User) SendMessagesToUser() error{
 		conn := PaxosServerConnections[randPort]
 		args := &multipaxos.CommitReplyArgs{}
 		reply := &multipaxos.FileReply{}
+
 		errCall := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
 		if(errCall != nil){
 			fmt.Println(errCall)
 			return errCall
 		}
 		msgFile := reply.File
-
 		reader := bufio.NewReader(msgFile)
 
 		var err error
@@ -184,6 +185,7 @@ func (user *User) SendMessagesToUser() error{
 		fmt.Println(err)
 		user.TimeRecd = time.Now()
 	}
+	return nil
 }
 
 
