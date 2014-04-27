@@ -2,7 +2,7 @@ package chatclient
 
 import (
 	"code.google.com/p/go.net/websocket"
-	"fmt"  
+	"fmt"
 	"container/list"
 	"github.com/cmu440/chatterbox/multipaxos"
 	"errors"
@@ -11,14 +11,18 @@ import (
 	"strconv"
 	"net"
 	"encoding/json"
+	"time"
+	"bufio"
+	"math/rand"
 )
 
 type User struct{
 	Connection *websocket.Conn
-	Name string 
+	Name string
 	Send chan Message
 	Rooms *list.List //list of rooms a user is joined to
 	chanMessage chan string
+	TimeRecd time.Duration
 }
 
 type ChatRoom struct{
@@ -26,6 +30,7 @@ type ChatRoom struct{
 }
 
 type Message struct{
+	room ChatRoom
 	User *User
 	Time string
 	Contents string
@@ -41,7 +46,6 @@ var ClientConn *rpc.Client
 var PaxosServers []int
 var Hostport string
 var PaxosServerConnections map[int] *rpc.Client
-
 
 func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 
@@ -107,15 +111,14 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 }
 
 func (cc *ChatClient) GetRooms() error {
-	//TODO
+	//TODO for testing
 	return errors.New("Unimplemented")
 }
 
 func (cc *ChatClient) GetUsers() error {
-	//TODO
+	//TODO for testing
 	return errors.New("Unimplemented")
 }
-
 
 //TODO called by the http.Handler when we set up the rendering stuff
 func NewUser(ws *websocket.Conn) error {
@@ -146,12 +149,34 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 	for {
 		//TODO RECEIVE messages from user and if the message is to join a new room update stats
 		//else if its  a message call SendMessage
+
+
 	}
 }
 
-func (user *User) SendMessagesToUser () {
+func (user *User) SendMessagesToUser() error{
 	for {
 		//TODO every 2 seconds get the logs and get diff and send new messages to the gui
+		time.Sleep(time.Second*2)
+		currTime := time.Now()
+		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
+		conn := PaxosServerConnections[randPort]
+		args := &CommitReplyArgs{}
+		reply := &FileReply{}
+		errCall := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
+		if(errCall != nil){
+			fmt.Println(errCall)
+			return errCall
+		}
+		msgFile := reply.File
+
+		scan := bufio.NewReader(msgFile)
+
+		scan.
+
+
+		user.TimeRecd = currTime
+
 	}
 }
 
