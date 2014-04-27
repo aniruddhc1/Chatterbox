@@ -11,26 +11,6 @@ import (
 )
 
 
-// 												//
-//					INIT SERVERS 			 	//
-//												//
-func StartServer1(){
-	_, err := multipaxos.NewPaxosServer("", 1, 8080) //starting master server
-	if(err != nil){
-		fmt.Println(err)
-	}
-
-}
-
-func StartServer2(){
-	_, err2 := multipaxos.NewPaxosServer("localhost:8080", 2, 9999) // starting node
-
-	if(err2 != nil){
-		fmt.Println(err2)
-	}
-}
-
-
 /*
  * testing if GetServers returns the correct number of the servers once all have joined
  */
@@ -168,7 +148,7 @@ func main(){
 
 	//CALL TESTS
 	if *registerAll {
-		time.Sleep(time.Second*5)
+		time.Sleep(time.Second*15)
 
 		fmt.Println("STARTTING A NEW CHAT CLIENT")
 		cClient, _ := chatclient.NewChatClient("2000", 8080)
