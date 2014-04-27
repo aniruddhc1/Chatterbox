@@ -275,11 +275,11 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 }
 
 type FileReply struct{
-	file os.File
+	File *os.File
 }
 
 func (ps *paxosServer) ServeMessageFile(args *CommitReplyArgs, reply *FileReply) error{
-	reply.file = *ps.CommittedMsgsFile
+	reply.File = ps.CommittedMsgsFile
 
 	return nil
 }

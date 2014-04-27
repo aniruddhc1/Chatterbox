@@ -12,17 +12,15 @@ import (
 	"net"
 	"encoding/json"
 	"time"
-	"bufio"
 	"math/rand"
+	"bufio"
 )
 
 type User struct{
 	Connection *websocket.Conn
 	Name string
-	Send chan Message
 	Rooms *list.List //list of rooms a user is joined to
-	chanMessage chan string
-	TimeRecd time.Duration
+	TimeRecd time.Time
 }
 
 type ChatRoom struct{
@@ -135,6 +133,8 @@ func NewUser(ws *websocket.Conn) error {
 	joiningUser := &User{
 		Connection : ws,
 		Name : username,
+		Rooms : list.New(),
+		TimeRecd : time.Now(),
 	}
 
 	Users[username] = joiningUser
@@ -158,11 +158,10 @@ func (user *User) SendMessagesToUser() error{
 	for {
 		//TODO every 2 seconds get the logs and get diff and send new messages to the gui
 		time.Sleep(time.Second*2)
-		currTime := time.Now()
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
-		args := &CommitReplyArgs{}
-		reply := &FileReply{}
+		args := &multipaxos.CommitReplyArgs{}
+		reply := &multipaxos.FileReply{}
 		errCall := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
 		if(errCall != nil){
 			fmt.Println(errCall)
@@ -170,13 +169,20 @@ func (user *User) SendMessagesToUser() error{
 		}
 		msgFile := reply.File
 
-		scan := bufio.NewReader(msgFile)
+		reader := bufio.NewReader(msgFile)
 
-		scan.
-
-
-		user.TimeRecd = currTime
-
+		var err error
+		var line []byte
+		for err == nil {
+			line, err = reader.ReadBytes('\n')
+			msg := &ChatMessage{}
+			json.Unmarshal(line, msg)
+			if(msg.Timestamp.After(user.TimeRecd)){
+				//TODO send message to chat client over websocket
+			}
+		}
+		fmt.Println(err)
+		user.TimeRecd = time.Now()
 	}
 }
 
