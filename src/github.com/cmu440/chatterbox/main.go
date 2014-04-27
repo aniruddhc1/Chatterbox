@@ -89,8 +89,10 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 
 	args := &multipaxos.SendMessageArgs{bytes,
 									multipaxos.Tester{
-										KillStage : "",
-										KillTime : "",
+										Stage : "",
+										Time : "",
+										Kill : true,
+										SleepTime : 0,
 									},
 									8080}
 
@@ -120,14 +122,18 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 
 	args1 := &multipaxos.SendMessageArgs{Value : bytes1,
 										Tester : multipaxos.Tester{
-											KillStage : "sendAccept",
-											KillTime : "end",
+											Stage : "sendAccept",
+											Time : "end",
+											Kill : true,
+											SleepTime : 0,
 										},
 										PaxosPort : port1}
 	args2 := &multipaxos.SendMessageArgs{Value : bytes2,
 										Tester : multipaxos.Tester{
-											KillStage : "",
-											KillTime : "",
+											Stage : "",
+											Time : "",
+											Kill : true,
+											SleepTime : 0, 
 										},
 										PaxosPort : port2}
 

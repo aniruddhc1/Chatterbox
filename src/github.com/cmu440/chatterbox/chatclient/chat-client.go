@@ -12,8 +12,8 @@ import (
 	"net"
 	"encoding/json"
 	"time"
-	"bufio"
-	"math/rand"
+	//"bufio"
+	//"math/rand"
 )
 
 type User struct{
@@ -39,6 +39,7 @@ type Message struct{
 type ChatClient struct {
 
 }
+
 
 var Rooms *list.List		//list of Chatroom objects
 var Users map[string] *User 	//list of UserObjects
@@ -157,12 +158,14 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 func (user *User) SendMessagesToUser() error{
 	for {
 		//TODO every 2 seconds get the logs and get diff and send new messages to the gui
-		time.Sleep(time.Second*2)
+		/*time.Sleep(time.Second*2)
 		currTime := time.Now()
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
-		args := &CommitReplyArgs{}
-		reply := &FileReply{}
+
+		args := &multipaxos.CommitReplyArgs{}
+		reply := &multipaxos.FileReply{}
+
 		errCall := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
 		if(errCall != nil){
 			fmt.Println(errCall)
@@ -175,9 +178,10 @@ func (user *User) SendMessagesToUser() error{
 		scan.
 
 
-		user.TimeRecd = currTime
+		user.TimeRecd = currTime */
 
 	}
+	return nil
 }
 
 

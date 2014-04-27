@@ -46,8 +46,10 @@ type SendMessageArgs struct {
 }
 
 type Tester struct {
-	KillStage string //sendPropose, sendAccept, sendCommit, receivePropose, receiveAccept, receiveCommit
-	KillTime string //start, mid, end
+	Stage string //sendPropose, sendAccept, sendCommit, receivePropose, receiveAccept, receiveCommit
+	Time string //start, mid, end
+	Kill bool //true means kill else sleep to delay the server
+	SleepTime int 	//time to slep if above is false
 }
 
 type SendMessageReplyArgs struct {
@@ -275,12 +277,11 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 }
 
 type FileReply struct{
-	file os.File
+	File os.File
 }
 
 func (ps *paxosServer) ServeMessageFile(args *CommitReplyArgs, reply *FileReply) error{
-	reply.file = *ps.CommittedMsgsFile
-
+	reply.File = *ps.CommittedMsgsFile
 	return nil
 }
 
@@ -296,8 +297,8 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
 
-	if tester.KillStage == currStage && tester.KillTime == currTime {
-		fmt.Println("Killing", ps.Port, "Need to stop at", tester.KillStage, tester.KillTime,
+	if tester.Stage == currStage && tester.Time == currTime {
+		fmt.Println("Killing", ps.Port, "Need to stop at", tester.Stage, tester.Time,
 			"Stopping at", currStage, currTime)
 		ps.listener.Close()
 		for _, conn := range ps.RPCConnections {
