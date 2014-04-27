@@ -29,10 +29,6 @@ func TestGetServers(cclient *chatclient.ChatClient) error{
 		return errCall
 	}
 
-	//													//
-	//					TEST GENERAL 					//
-	//													//
-
 	if(!reply.Ready){
 		return errors.New("servers weren't ready...?")
 	}else if(len(reply.Servers) != 5){
@@ -42,20 +38,10 @@ func TestGetServers(cclient *chatclient.ChatClient) error{
 	return nil
 }
 
-
-//													//
-//					TEST PROPOSER 					//
-//													//
-
-
-
-//													//
-//					TEST ACCEPTOR					//
-//													//
-
 /*
  * Check that after the proposer sends a propose request the acceptor replies OK
- * if it hasn't seen anything before.
+ * if it hasn't seen anything before. Does one iteration of paxos without any
+ * failure of nodes
  */
 func testBasic1(cclient *chatclient.ChatClient) error{
 	fmt.Println("starting testbasic1")
@@ -85,6 +71,11 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 	return nil
 }
 
+/*
+ * Does one iteration of paxos with the failure of first proposer after sending
+ * accept messages. Test that it commits the right message (the first one should be
+ * commited)
+ */
 func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	fmt.Println("starting testbasic2")
 
@@ -133,7 +124,15 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	//then make sure that after second send message that msg21 is in file not msg2! 
 
 	return nil
+}
 
+
+/*
+ *
+ */
+func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
+
+	return nil
 }
 
 func main(){
@@ -165,6 +164,7 @@ func main(){
 		fmt.Println("TEST_BASIC_2")
 		err2 := testBasic2(cClient, 8080, 9990)
 		fmt.Println(err2)
+
 	} else if (*isMaster){
 		//START THE MASTER SERVER
 		_, err := multipaxos.NewPaxosServer("", *N, *port) //starting master server
