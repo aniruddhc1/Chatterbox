@@ -55,7 +55,7 @@ func TestGetServers(cclient *chatclient.ChatClient) error{
 
 	if(!reply.Ready){
 		return errors.New("servers weren't ready...?")
-	}else if(len(reply.Servers) != 2){
+	}else if(len(reply.Servers) != 5){
 		return errors.New("number of servers not 2")
 	}
 	fmt.Println("PASS GetServers()")
@@ -137,13 +137,6 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 										},
 										PaxosPort : port2}
 
-	/*
-	killStage : "sendPropose", "sendAccept", "sendCommit"
-				"receivePropose", "receiveAccept", //todo
-				"receiveCommit" //todo
-	killTime : start, mid, end
-	*/
-
 	err := cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
 
 	if(err != nil){
@@ -154,6 +147,10 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	if(err2 != nil){
 		return err2
 	}
+
+	//TODO this is working but Ani will create a function that will look at the log file before first send message
+	//make sure that after this send message file is not modified
+	//then make sure that after second send message that msg21 is in file not msg2! 
 
 	return nil
 
