@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 	"sync"
+	"os/exec"
 )
 
 type paxosServer struct {
@@ -30,7 +31,7 @@ type paxosServer struct {
 	NumConnected   int                 //number of servers that are currently connected and active
 	RPCConnections map[int]*rpc.Client //from port number to the rpc connection so we don't have to dial everytime
 	Servers        []int               //port numbers of all the servers in the ring
-	listener       net.Listener
+	listener       *net.Listener
 	RoundID        int
 	RoundIDLock 	*sync.Mutex
 
@@ -53,24 +54,7 @@ type paxosServer struct {
 	chanListener chan int
 }
 
-func (ps *paxosServer) HandleListener(listener net.Listener) {
-	go http.Serve(listener, nil)
-
-	for {
-		var err error
-		n := <-ps.chanListener
-		listener.Close()
-		time.Sleep(time.Duration(n)*time.Second)
-		listener, err = net.Listen("tcp", ":"+strconv.Itoa(ps.Port))
-		if err != nil {
-			fmt.Println("Err occured while trying to starting listening again", err)
-		}
-		go http.Serve(listener, nil)
-	}
-}
-
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
-
 
 	timeString := time.Now().String()
 	file, err := os.Create(strconv.Itoa(port)+"|"+ timeString)
@@ -125,9 +109,9 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		return nil, errListen
 	}
 
-	paxosServer.listener = listener
+	paxosServer.listener = &listener
 
-	go paxosServer.HandleListener(listener)
+	go http.Serve(listener, nil)
 
 	//If the server is a slave create a connection to the master
 	var regular *rpc.Client
@@ -258,19 +242,40 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	var err error
 
 	if tester.Stage == currStage && tester.Time == currTime {
-		if tester.Kill{
-			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,
-				"Stopping at", currStage, currTime)
-				ps.listener.Close()
-			for _, conn := range ps.RPCConnections {
-				err = conn.Close()
-			}
+		if tester.Kill {
+			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,"Stopping at", currStage, currTime)
 		} else {
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
-			ps.chanListener <- tester.SleepTime
+		}
+
+		fmt.Println("Closign listener")
+		err := (*ps.listener).Close()
+		if err != nil {
+			fmt.Println("Couldn't close listener")
+		}
+
+		fmt.Println("Closing all connections")
+		for _, conn := range ps.RPCConnections {
+			err = conn.Close()
+		}
+		fmt.Println("Done Closing all connections")
+
+
+		if !tester.Kill{
+			cmd := exec.Command("sleep", "5")
+			err = cmd.Start()
+			if err != nil {
+				fmt.Println("Couldnt do the exec sleep thign :'(")
+			}
+
+
 			time.Sleep(time.Second*time.Duration(tester.SleepTime))
+			fmt.Println("STARTING AGAIN", ps.Port)
+			ps.CreatePaxosConnections()
 		}
 	}
+
+
 
 	return err
 }
@@ -371,7 +376,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 
 		fmt.Println("Proposing reply port", proposeReply.AcceptorPort, "round ", proposeReply.RoundID, "accepted? ",
-			proposeReply.Accepted, "soumya is ", proposeReply.Pair)
+			proposeReply.Accepted, "Pair is ", proposeReply.Pair, "Proposer is", ps.Port)
 
 		if time.Now().UnixNano()%2 == 0 {
 			ps.CheckKill(&args.Tester, "sendPropose", "mid")
@@ -504,6 +509,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 
 //Functions related to Acceptor
 func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error {
+
 	fmt.Println("Handle Propose Request")
 	reply.RoundID = ps.RoundID
 	reply.AcceptorPort = ps.Port
