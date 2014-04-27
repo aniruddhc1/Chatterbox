@@ -94,7 +94,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		chanListener : make(chan int),
 	}
 
-	//Register the server http://angusmacdonald.me/writing/paxos-by-example/to RPC
+	//Register the server http://angusmacdonald.me/writing/paxos-by-example/ to RPC
 	errRegister := rpc.RegisterName("PaxosServer", Wrap(paxosServer))
 	if errRegister != nil {
 		fmt.Println("An error occured while doing rpc register", errRegister)

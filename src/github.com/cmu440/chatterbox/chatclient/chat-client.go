@@ -202,5 +202,10 @@ func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxo
 
 func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.FileReply) error{
 	conn := PaxosServerConnections[args.Port]
+	err := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
 
+	if(err != nil){
+		return err
+	}
+	return nil
 }

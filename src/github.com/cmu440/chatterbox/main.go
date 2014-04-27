@@ -149,9 +149,9 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 		return err
 	}
 
-	err2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
-	if(err2 != nil){
-		return err2
+	error2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	if(error2 != nil){
+		return error2
 	}
 
 	fileReply3 := &multipaxos.FileReply{}
@@ -165,13 +165,16 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	if(bytes.Compare(replyBytes2, replyBytes3) == 0){
 		return errors.New("nothing added to the log file!!")
 	} else{
+		var line3 string
+		var err3 error
 		for {
-			line3, err3 := fileReply3.File.ReadLine()
+			line3, err3 = bufio.NewReader(fileReply3.File).ReadString('\n')
 			if err3 != nil {
 				break
 			}
 		}
-		if line3 == bytes2 && line3 != bytes1{
+		Line3, _ := json.Marshal(line3)
+		if bytes.Compare(Line3, replyBytes2) == 0 && bytes.Compare(Line3, replyBytes1) != 0 {
 			errors.New("message 1 did not get added to the file!")
 		}
 	}
