@@ -155,7 +155,7 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 			Stage : "sendPropose",
 			Time : "start",
 			Kill : false,
-			SleepTime : 5,
+			SleepTime : 30,
 		},
 		PaxosPort : port1}
 
@@ -180,12 +180,15 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 
 	go cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second)
+	fmt.Println("SENDING SECOND MESSAGEEEEEE")
 	err2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
 	if(err2 != nil){
 		fmt.Println("Error 2", err2)
 		return err2
 	}
+
+	time.Sleep(time.Second*20)
 
 	err3 := cClient1.SendMessage(args3, &multipaxos.SendMessageReplyArgs{})
 	if(err3 != nil){
@@ -210,7 +213,6 @@ func main(){
 	port := flag.Int("port", 1111, "to specify the port number to start the master server on")
 	flag.Parse()
 
-	fmt.Println("IN MAIN", *isMaster)
 
 	//CALL TESTS
 	if *registerAll {
