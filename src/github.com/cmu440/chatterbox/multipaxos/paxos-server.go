@@ -141,7 +141,9 @@ type paxosServer struct {
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
 
-	file, err := os.Create(strconv.Itoa(port)+"|"+time.Now().UnixNano().String())
+
+	timeString := time.Now().String()
+	file, err := os.Create(strconv.Itoa(port)+"|"+ timeString)
 
 	if (err != nil){
 		fmt.Println(err)
@@ -354,9 +356,9 @@ func (ps *paxosServer) SendRecover() error {
 func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs) error {
 	//If this server is behind the server trying to recover then first recover yourself 
 	if args.RoundID < ps.RoundID {
-		err := ps.SendRecover() 
+		err := ps.SendRecover()
 		if err != nil {
-			return  errors.New("Couldn't recover this one so cant send updated logs")
+			errors.New("Couldn't recover this one so cant send updated logs")
 		}
 	}
 
@@ -394,7 +396,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 
 		if proposeReply.RoundID != ps.RoundID {
-			fmt.Println("Round Id's do not match need to recover")
+			fmt.Println("Propose Round Id's do not match need to recover my round id:",ps.RoundID, "proposeReply id", proposeReply.RoundID)
 			err := ps.SendRecover()
 			if err != nil {
 				fmt.Println("Couldn't recover", err)
@@ -501,7 +503,6 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 		err := ps.SendRecover()
 		if err != nil {
 			fmt.Println("Paxos Server", ps.Port, "was behind and couldn't recover properly")
-			return err
 		}
 	} else if ps.MaxPromisedID >= args.ProposalID {
 		reply.Accepted = false
@@ -540,9 +541,10 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 }
 
 func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error {
-	fmt.Println("sending commit message")
+	fmt.Println("handle commit message")
 
 	ps.CommittedMsgs[args.RoundID] = args.Value
+
 	_, err := ps.CommittedMsgsFile.Write(args.Value)
 	if(err != nil){
 		return err
