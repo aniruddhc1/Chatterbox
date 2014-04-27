@@ -7,8 +7,7 @@ package multipaxos
 2. Do the exponential backoff stuff to prevent livelock
 3. Change recovery from logs to a complete file based log system
 4. Write a lot more tests,
-5. Change testing to not only just killing but also like sleeping to make a server fall behind
-6.
+.
 */
 
 import (
@@ -24,97 +23,6 @@ import (
 	"time"
 	"sync"
 )
-
-type KeyValuePair struct {
-	ProposalID int
-	Value      []byte
-}
-
-type GetServersArgs struct {
-	//intentionally left empty
-}
-
-type GetServersReply struct {
-	Ready   bool
-	Servers []int
-}
-
-type SendMessageArgs struct {
-	Value  []byte
-	Tester Tester
-	PaxosPort int
-}
-
-type Tester struct {
-	Stage string //sendPropose, sendAccept, sendCommit, receivePropose, receiveAccept, receiveCommit
-	Time string //start, mid, end
-	Kill bool //true means kill else sleep to delay the server
-	SleepTime int 	//time to slep if above is false
-}
-
-type SendMessageReplyArgs struct {
-	//this page intentionally left blank.
-}
-
-type ProposeArgs struct {
-	RoundID    int
-	ProposalID int
-	Proposer   int //port of the proposer
-}
-
-type ProposeReplyArgs struct {
-	RoundID      int
-	Pair         *KeyValuePair //consists of proposal id and value
-	Accepted     bool
-	AcceptorPort int
-}
-
-type AcceptRequestArgs struct {
-	RoundID    int
-	ProposalID int
-	Value      []byte
-}
-
-type AcceptReplyArgs struct {
-	Accepted     bool
-	AcceptorPort int
-	RoundID      int
-}
-
-type CommitArgs struct {
-	Value   []byte
-	RoundID int
-}
-
-type CommitReplyArgs struct {
-	//intentionally left blank
-}
-
-type RecoverArgs struct {
-	RoundID int
-}
-
-type RecoverReplyArgs struct {
-	RoundID int
-	CommittedValues map[int] []byte
-}
-
-type RegisterArgs struct {
-	Port int
-}
-
-type RegisterReplyArgs struct {
-	Servers []int
-}
-
-//Will be used by chat client
-type GetCommitMsgsArgs struct {
-	//TODO
-}
-
-type GetCommitMsgsReply struct {
-	//TODO
-}
 
 type paxosServer struct {
 	Port           int
@@ -142,7 +50,24 @@ type paxosServer struct {
 	CommittedMsgs     map[int][]byte //message committed for every round of Paxos
 	CommittedMsgsFile *os.File
 
+	RegisterLock *sync.Mutex
+	chanListener chan int
+}
 
+func (ps *paxosServer) HandleListener(listener net.Listener) {
+	go http.Serve(listener, nil)
+
+	for {
+		var err error
+		n := <-ps.chanListener
+		listener.Close()
+		time.Sleep(time.Duration(n)*time.Second)
+		listener, err = net.Listen("tcp", ":"+strconv.Itoa(ps.Port))
+		if err != nil {
+			fmt.Println("Err occured while trying to starting listening again", err)
+		}
+		go http.Serve(listener, nil)
+	}
 }
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
@@ -181,6 +106,9 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		//Required for learner role
 		CommittedMsgs:     make(map[int][]byte),
 		CommittedMsgsFile: file,
+
+		RegisterLock: &sync.Mutex{},
+		chanListener : make(chan int),
 	}
 
 	//Register the server http://angusmacdonald.me/writing/paxos-by-example/to RPC
@@ -200,7 +128,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 
 	paxosServer.listener = listener
 
-	go http.Serve(listener, nil)
+	go paxosServer.HandleListener(listener)
 
 	//If the server is a slave create a connection to the master
 	var regular *rpc.Client
@@ -208,13 +136,14 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 	if masterHostPort != "" {
 		regular, errDial = rpc.DialHTTP("tcp", masterHostPort)
 		if errDial != nil {
-			fmt.Println("Slave couldn't connect to master", errDial)
+			//fmt.Println("Slave couldn't connect to master", errDial)
 			return nil, errDial
 		}
 	}
 
 	//Wait till all paxos servers in group have joined
 	for {
+		fmt.Println("TRYING", paxosServer.Port)
 		args := &RegisterArgs{paxosServer.Port}
 		reply := &RegisterReplyArgs{}
 		var err error
@@ -222,22 +151,24 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		if masterHostPort == "" {
 			//This is a master paxos server that others will register to
 			err = paxosServer.RegisterServer(args, reply)
+			if err != nil {
+				//fmt.Println(paxosServer.Port, err, "SLEEPING for SECOND")
+				time.Sleep(time.Second)
+				continue
+			}
 		} else {
 			//This is a regular paxos server
 			err := regular.Call("PaxosServer.RegisterServer", args, reply)
 			if err != nil {
-				fmt.Println(err)
-				return nil, err
+				//fmt.Println(paxosServer.Port, err, "SLEEPING for SECOND")
+				time.Sleep(time.Second)
+				continue
 			}
 		}
 
-		if err != nil {
-			fmt.Println(err)
-			time.Sleep(time.Second)
-		} else {
-			paxosServer.Servers = reply.Servers
-			break
-		}
+		//fmt.Println("Setting paxos servers", paxosServer.Port, reply.NumConnected)
+		paxosServer.Servers = reply.Servers
+		break
 	}
 
 	err = paxosServer.CreatePaxosConnections()
@@ -250,12 +181,11 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 }
 
 func (ps *paxosServer) CreatePaxosConnections() error{
-	fmt.Println("Creating Paxos Connections")
+	fmt.Println("Adding rpc connections for", ps.Port)
 	//Create rpc connections to all servers
 	for i := 0; i < ps.NumNodes; i++ {
-		fmt.Println("Adding rpc connections for", ps.Port)
 		currPort := ps.Servers[i]
-
+		fmt.Println(currPort, ps.Port)
 		serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(currPort))
 		if dialErr != nil {
 			fmt.Println("Error occured while dialing to all servers", dialErr)
@@ -272,6 +202,7 @@ func (ps *paxosServer) CreatePaxosConnections() error{
 }
 
 func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyArgs) error {
+	ps.RegisterLock.Lock()
 	alreadyJoined := false
 
 	for i := 0; i < ps.NumConnected; i++ {
@@ -280,8 +211,6 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 		}
 	}
 
-	var err error
-	reply.Servers = ps.Servers
 
 	if !alreadyJoined {
 		fmt.Println("IN REGISTER", ps.NumConnected, args.Port)
@@ -289,11 +218,16 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 		ps.NumConnected++
 	}
 
+	reply.Servers = ps.Servers
+	reply.NumConnected = ps.NumConnected
+
 	if ps.NumConnected != ps.NumNodes {
-		err = errors.New("Not all servers have joined")
+		ps.RegisterLock.Unlock()
+		return errors.New("Not all servers have joined")
 	}
 
-	return err
+	ps.RegisterLock.Unlock()
+	return nil
 }
 
 type FileReply struct{
@@ -321,11 +255,17 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	var err error
 
 	if tester.Stage == currStage && tester.Time == currTime {
-		fmt.Println("Killing", ps.Port, "Need to stop at", tester.Stage, tester.Time,
-			"Stopping at", currStage, currTime)
-		ps.listener.Close()
-		for _, conn := range ps.RPCConnections {
-			 err = conn.Close()
+		if tester.Kill{
+			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,
+				"Stopping at", currStage, currTime)
+			ps.listener.Close()
+			for _, conn := range ps.RPCConnections {
+				err = conn.Close()
+			}
+		} else {
+			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
+			ps.chanListener <- tester.SleepTime
+			time.Sleep(time.Second*time.Duration(tester.SleepTime))
 		}
 	}
 
