@@ -165,6 +165,8 @@ func main(){
 
 	//CALL TESTS
 	if *registerAll {
+		time.Sleep(time.Second*5)
+
 		fmt.Println("STARTTING A NEW CHAT CLIENT")
 		cClient, _ := chatclient.NewChatClient("2000", 8080)
 
@@ -172,7 +174,6 @@ func main(){
 		err := TestGetServers(cClient)
 		fmt.Println(err)
 
-		time.Sleep(time.Second*3)
 
 		fmt.Println("TEST_BASIC_1")
 		err1 := testBasic1(cClient)

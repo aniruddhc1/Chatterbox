@@ -310,7 +310,7 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 //Functions related to Recovery
 func (ps *paxosServer) SendRecover() error {
 	logs := make(map[int]*RecoverReplyArgs)
-	var maxRound int
+	maxRound := 0
 
 	for port, conn := range ps.RPCConnections {
 		args := &RecoverArgs{ps.RoundID}
@@ -372,9 +372,8 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 	ps.CheckKill(&args.Tester, "sendPropose", "start")
 	fmt.Println("in Propose")
 	ps.ProposalID++
-	proposeReply := &ProposeReplyArgs{}
 	majority := ps.NumNodes/2 + ps.NumNodes%2
-	var maxPair *KeyValuePair
+	maxPair := &KeyValuePair{-1, nil}
 
 	for _, conn := range ps.RPCConnections {
 		proposeArgs := &ProposeArgs{
@@ -382,7 +381,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 			ProposalID: ps.ProposalID,
 			Proposer:   ps.Port,
 		}
-
+		proposeReply := &ProposeReplyArgs{}
 		err := conn.Call("PaxosServer.HandleProposeRequest", proposeArgs, proposeReply)
 		if err != nil {
 			fmt.Println("Error while calling HandleProposeRequest", err)
@@ -417,7 +416,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 	fmt.Println("The majority is", majority, "Num accepted is", ps.ProposeAcceptedQueue.Len())
 
 	if ps.ProposeAcceptedQueue.Len() >= majority {
-		if maxPair != nil {
+		if maxPair.ProposalID != -1 {
 			fmt.Println("maxpair not nil, sending accept request  ", maxPair.ProposalID)
 			return ps.SendAcceptRequests(ps.ProposeAcceptedQueue, maxPair.ProposalID, maxPair.Value, &args.Tester)
 		} else {
@@ -435,6 +434,7 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 
 	for e := acceptors.Front(); e != nil; e = e.Next() {
 		reply := e.Value.(*ProposeReplyArgs)
+		fmt.Println(reply.AcceptorPort)
 		conn := ps.RPCConnections[reply.AcceptorPort]
 
 		acceptArgs := &AcceptRequestArgs{
@@ -454,6 +454,7 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 		}
 
 		if acceptReply.Accepted {
+			fmt.Println(reply.AcceptorPort, "Paxos server accepted")
 			ps.AcceptedQueue.PushBack(acceptReply)
 		}
 	}
@@ -511,7 +512,6 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 	reply.Accepted = true
 	if ps.ToCommitQueue.Len() > 0 && ps.ToCommitQueue.Front() != nil {
 		commitMsg := ps.ToCommitQueue.Front().Value.(KeyValuePair)
-		fmt.Println("queue length and other things : ", ps.ToCommitQueue.Len(), commitMsg.ProposalID, commitMsg.Value)
 		reply.Pair = &KeyValuePair{commitMsg.ProposalID, commitMsg.Value}
 	}
 	return nil
@@ -541,7 +541,7 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 }
 
 func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error {
-	fmt.Println("handle commit message")
+	fmt.Println("Handle commit message paxos server", ps.Port)
 
 	ps.CommittedMsgs[args.RoundID] = args.Value
 
