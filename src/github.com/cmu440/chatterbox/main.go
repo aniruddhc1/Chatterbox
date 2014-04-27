@@ -133,7 +133,7 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 											Stage : "",
 											Time : "",
 											Kill : true,
-											SleepTime : 0, 
+											SleepTime : 0,
 										},
 										PaxosPort : port2}
 

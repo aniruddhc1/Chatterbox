@@ -22,7 +22,7 @@ import (
 	"os"
 	"strconv"
 	"time"
-
+	"sync"
 )
 
 type KeyValuePair struct {
@@ -118,13 +118,14 @@ type GetCommitMsgsReply struct {
 
 type paxosServer struct {
 	Port           int
-	RoundID        int
 	MasterHostPort string
 	NumNodes       int
 	NumConnected   int                 //number of servers that are currently connected and active
 	RPCConnections map[int]*rpc.Client //from port number to the rpc connection so we don't have to dial everytime
 	Servers        []int               //port numbers of all the servers in the ring
 	listener       net.Listener
+	RoundID        int
+	RoundIDLock 	*sync.Mutex
 
 	//Required for proposer role
 	ProposalID           int
@@ -139,6 +140,8 @@ type paxosServer struct {
 	//Required for learner role
 	CommittedMsgs     map[int][]byte //message committed for every round of Paxos
 	CommittedMsgsFile *os.File
+
+
 }
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
@@ -155,12 +158,13 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 	//Initialize paxos server
 	paxosServer := &paxosServer{
 		Port:           port,
-		RoundID:        0,
 		MasterHostPort: masterHostPort,
 		NumNodes:       numNodes,
 		NumConnected:   0,
 		RPCConnections: make(map[int]*rpc.Client),
 		Servers:        make([]int, numNodes),
+		RoundID:        1,
+		RoundIDLock: 	&sync.Mutex{},
 
 		//Required for proposal role
 		ProposalID:           0,
@@ -348,6 +352,7 @@ func (ps *paxosServer) SendRecover() error {
 		}
 
 		ps.CommittedMsgs[ps.RoundID] = val
+		fmt.Println(ps.RoundID, ps.Port, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 		ps.RoundID++
 	}
 
@@ -462,7 +467,10 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 
 	if ps.AcceptedQueue.Len() >= majority {
 		ps.CheckKill(tester, "sendAccept", "end")
-		return ps.SendCommit(acceptors, value, tester)
+
+		err := ps.SendCommit(acceptors, value, tester)
+
+		return err
 	}
 	return errors.New("Couldn't reach a majority to send the accept requests")
 }
@@ -470,8 +478,16 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Tester) error {
 	ps.CheckKill(tester, "sendCommit", "start")
 	fmt.Println("Send Commit")
+	ImAnAcceptor := false
+
 	for e := acceptors.Front(); e != nil; e = e.Next() {
 		reply := e.Value.(*ProposeReplyArgs)
+
+		if reply.AcceptorPort == ps.Port {
+			ImAnAcceptor = true
+			continue
+		}
+
 		conn := ps.RPCConnections[reply.AcceptorPort]
 
 		if time.Now().UnixNano()%2 == 0 {
@@ -487,6 +503,16 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 			fmt.Println("error in send commit request ", err)
 		}
 	}
+
+	if ImAnAcceptor {
+		commitArgs := &CommitArgs{Value: value, RoundID: ps.RoundID}
+		commitReply := &CommitReplyArgs{}
+		err := ps.HandleCommit(commitArgs, commitReply)
+		if err != nil {
+			fmt.Println("error in send commit request ", err)
+		}
+	}
+
 	ps.CheckKill(tester, "sendCommit", "end")
 
 	return nil
@@ -558,7 +584,9 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error 
 		}
 	}
 
+	fmt.Println(ps.RoundID, ps.Port, "________________________________________")
 	ps.RoundID++
+
 	ps.ProposeAcceptedQueue = list.New()
 	ps.AcceptedQueue = list.New()
 
