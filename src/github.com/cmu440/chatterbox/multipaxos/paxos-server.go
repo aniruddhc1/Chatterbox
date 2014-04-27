@@ -6,8 +6,7 @@ package multipaxos
    If it fails make it start the paxos again
 2. Do the exponential backoff stuff to prevent livelock
 3. Change recovery from logs to a complete file based log system
-4. Write a lot more tests,
-.
+4. Write a lot more tests
 */
 
 import (
@@ -234,7 +233,11 @@ type FileReply struct{
 	File *os.File
 }
 
-func (ps *paxosServer) ServeMessageFile(args *CommitReplyArgs, reply *FileReply) error{
+type FileArgs struct{
+	Port int
+}
+
+func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	reply.File = ps.CommittedMsgsFile
 
 	return nil
@@ -258,7 +261,7 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 		if tester.Kill{
 			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,
 				"Stopping at", currStage, currTime)
-			ps.listener.Close()
+				ps.listener.Close()
 			for _, conn := range ps.RPCConnections {
 				err = conn.Close()
 			}

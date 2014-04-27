@@ -198,3 +198,9 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
 	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
 }
+
+
+func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.FileReply) error{
+	conn := PaxosServerConnections[args.Port]
+
+}
