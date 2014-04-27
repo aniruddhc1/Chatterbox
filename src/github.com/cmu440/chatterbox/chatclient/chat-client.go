@@ -38,8 +38,9 @@ type ChatClient struct {
 var Rooms *list.List		//list of Chatroom objects
 var Users map[string] *User 	//list of UserObjects
 var ClientConn *rpc.Client
-var PaxosServers []multipaxos.PaxosServer
+var PaxosServers []int
 var Hostport string
+var PaxosServerConnections map[int] *rpc.Client
 
 
 func NewChatClient(port string, paxosPort int) (*ChatClient, error){
@@ -69,11 +70,40 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 		return nil, errDial
 	}
 
+	//INITIALIZING GLOBAL VARIABLES
+	Rooms = list.New()		//list of Chatroom objects
+	Users = make(map[string] *User) 	//list of UserObjects
+	PaxosServerConnections = make(map[int] *rpc.Client)
 	ClientConn = chatConn
 
-	return chatclient, nil
 
-	return &ChatClient{}, nil
+	//GETTING ALL PAXOS SERVER CONNECTIONS
+	getServerArgs :=  &multipaxos.GetServersArgs{}
+	getServerReply := &multipaxos.GetServersReply{}
+
+	err := chatclient.GetServers(getServerArgs, getServerReply)
+	if err != nil {
+		fmt.Println("Error occured while getting servers", err)
+		return nil, err
+	}
+
+	//TODO do the weird waiting thing, for now assume that it is done
+	PaxosServers = getServerReply.Servers
+
+	for i := 0; i < len(PaxosServers); i++ {
+		fmt.Println("Adding rpc connections for", PaxosServers[i])
+		currPort := PaxosServers[i]
+
+		serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(currPort))
+		if dialErr != nil {
+			fmt.Println("Error occured while dialing to all servers", dialErr)
+			return nil, dialErr
+		} else {
+			PaxosServerConnections[currPort] = serverConn
+		}
+	}
+
+	return chatclient, nil
 }
 
 func (cc *ChatClient) GetRooms() error {
@@ -128,7 +158,8 @@ func (user *User) SendMessagesToUser () {
 
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
 	fmt.Println("Sending Message in Chat Client")
-	errCall := ClientConn.Call("PaxosServer.SendMessage", &args, &reply)
+	conn := PaxosServerConnections[args.PaxosPort]
+	errCall := conn.Call("PaxosServer.SendMessage", &args, &reply)
 	return errCall
 }
 

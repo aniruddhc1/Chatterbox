@@ -42,6 +42,7 @@ type GetServersReply struct {
 type SendMessageArgs struct {
 	Value  []byte
 	Tester Tester
+	PaxosPort int
 }
 
 type Tester struct {
@@ -135,12 +136,12 @@ type paxosServer struct {
 
 	//Required for learner role
 	CommittedMsgs     map[int][]byte //message committed for every round of Paxos
-	CommittedMsgsFile os.File
+	CommittedMsgsFile *os.File
 }
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
 
-	file, err := os.Create(string(port)+time.Now().String())
+	file, err := os.Create(strconv.Itoa(port)+"|"+time.Now().UnixNano().String())
 
 	if (err != nil){
 		fmt.Println(err)
@@ -169,7 +170,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 
 		//Required for learner role
 		CommittedMsgs:     make(map[int][]byte),
-		CommittedMsgsFile: *file,
+		CommittedMsgsFile: file,
 	}
 
 	//Register the server http://angusmacdonald.me/writing/paxos-by-example/to RPC
@@ -231,6 +232,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 
 	//Create rpc connections to all servers
 	for i := 0; i < numNodes; i++ {
+		fmt.Println("Adding rpc connections for", paxosServer.Port)
 		currPort := paxosServer.Servers[i]
 
 		serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(currPort))
@@ -275,7 +277,7 @@ type FileReply struct{
 }
 
 func (ps *paxosServer) ServeMessageFile(args *CommitReplyArgs, reply *FileReply) error{
-	reply.file = ps.CommittedMsgsFile
+	reply.file = *ps.CommittedMsgsFile
 
 	return nil
 }
@@ -291,9 +293,10 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
-	fmt.Println("Killing", ps.Port, "Need to stop at", tester.KillStage, tester.KillTime,
-									"Stopping at", currStage, currTime)
+
 	if tester.KillStage == currStage && tester.KillTime == currTime {
+		fmt.Println("Killing", ps.Port, "Need to stop at", tester.KillStage, tester.KillTime,
+			"Stopping at", currStage, currTime)
 		ps.listener.Close()
 		for _, conn := range ps.RPCConnections {
 			conn.Close()
@@ -391,11 +394,13 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 
 		if proposeReply.RoundID != ps.RoundID {
+			fmt.Println("Round Id's do not match need to recover")
 			err := ps.SendRecover()
 			if err != nil {
 				fmt.Println("Couldn't recover", err)
 			}
 		} else if proposeReply.Accepted {
+			fmt.Println(proposeReply.AcceptorPort, "Accepted!")
 			ps.ProposeAcceptedQueue.PushBack(proposeReply)
 			if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
 				maxPair.ProposalID = proposeReply.Pair.ProposalID
@@ -407,6 +412,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 	}
 
 	ps.CheckKill(&args.Tester, "sendPropose", "end")
+	fmt.Println("The majority is", majority, "Num accepted is", ps.ProposeAcceptedQueue.Len())
 
 	if ps.ProposeAcceptedQueue.Len() >= majority {
 		if maxPair != nil {

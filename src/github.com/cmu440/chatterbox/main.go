@@ -91,7 +91,8 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 									multipaxos.Tester{
 										KillStage : "",
 										KillTime : "",
-									},}
+									},
+									8080}
 
 	err := cclient.SendMessage(args, &multipaxos.SendMessageReplyArgs{})
 
@@ -102,7 +103,7 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 	return nil
 }
 
-func testBasic2(cClient1, cClient2 *chatclient.ChatClient) error {
+func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	fmt.Println("starting testbasic2")
 
 	msg1 := chatclient.ChatMessage{"Aniruddh", "testRoom", "lololollol :D", time.Now()}
@@ -121,12 +122,14 @@ func testBasic2(cClient1, cClient2 *chatclient.ChatClient) error {
 										Tester : multipaxos.Tester{
 											KillStage : "sendAccept",
 											KillTime : "end",
-										},}
+										},
+										PaxosPort : port1}
 	args2 := &multipaxos.SendMessageArgs{Value : bytes2,
 										Tester : multipaxos.Tester{
 											KillStage : "",
 											KillTime : "",
-										},}
+										},
+										PaxosPort : port2}
 
 	/*
 	killStage : "sendPropose", "sendAccept", "sendCommit"
@@ -141,7 +144,7 @@ func testBasic2(cClient1, cClient2 *chatclient.ChatClient) error {
 		return err
 	}
 
-	err2 := cClient2.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	err2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
 	if(err2 != nil){
 		return err2
 	}
@@ -160,15 +163,24 @@ func main(){
 
 	fmt.Println("IN MAIN", *isMaster)
 
+	//CALL TESTS
 	if *registerAll {
-		//CALL ALL TESTS
-		var cClient *chatclient.ChatClient
-		cClient, _ = chatclient.NewChatClient("2000", 8080)
+		fmt.Println("STARTTING A NEW CHAT CLIENT")
+		cClient, _ := chatclient.NewChatClient("2000", 8080)
+
+		fmt.Println("TEST GET_SERVERS")
 		err := TestGetServers(cClient)
 		fmt.Println(err)
 
-		//err1 := testBasic1(cClient)
-		//fmt.Println(err1)
+		time.Sleep(time.Second*3)
+
+		fmt.Println("TEST_BASIC_1")
+		err1 := testBasic1(cClient)
+		fmt.Println(err1)
+
+		fmt.Println("TEST_BASIC_2")
+		err2 := testBasic2(cClient, 8080, 9990)
+		fmt.Println(err2)
 	} else if (*isMaster){
 		//START THE MASTER SERVER
 		_, err := multipaxos.NewPaxosServer("", *N, *port) //starting master server
