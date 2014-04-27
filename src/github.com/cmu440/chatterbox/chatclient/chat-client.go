@@ -157,7 +157,6 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 
 func (user *User) SendMessagesToUser() error{
 	for {
-		//TODO every 2 seconds get the logs and get diff and send new messages to the gui
 		time.Sleep(time.Second*2)
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]

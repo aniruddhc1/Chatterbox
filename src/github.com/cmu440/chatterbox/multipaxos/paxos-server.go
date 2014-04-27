@@ -519,6 +519,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 	fmt.Println("Send Commit")
 	ImAnAcceptor := false
 
+	fmt.Println(acceptors.Len())
 	for e := acceptors.Front(); e != nil; e = e.Next() {
 		reply := e.Value.(*ProposeReplyArgs)
 
