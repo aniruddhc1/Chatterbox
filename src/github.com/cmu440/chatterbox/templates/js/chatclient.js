@@ -53,3 +53,6 @@ function SendMessage(msg) {
 	connection.send('Hey server, whats up?');
 }
 
+function AddRoom(roomName){
+
+}
