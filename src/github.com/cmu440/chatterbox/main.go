@@ -214,7 +214,7 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 			Stage : "sendPropose",
 			Time : "start",
 			Kill : false,
-			SleepTime : 30,
+			SleepTime : 7,
 		},
 		PaxosPort : port1}
 
@@ -265,68 +265,68 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 }
 
 func testBasic4(cclient *chatclient.ChatClient, port1, port2, port3 int) error {
-	msg1 := chatclient.ChatMessage{"alockwoo", "awesome", "poopmaster", time.Now()}
-	msg2 := chatclient.ChatMessage{"achaturv", "awesome", "golang ", time.Now()}
-	msg3 := chatclient.ChatMessage{"skethu", "awesome", "i'm too cool", time.Now()}
-	msg4 := chatclient.ChatMessage{"cgarrod", "awesome", "hahahaha!", time.Now()}
-
-	bytes1, err1 := json.Marshal(msg1)
-	bytes2, err2 := json.Marshal(msg2)
-	bytes3, err3 := json.Marshal(msg3)
-	bytes4, err4 := json.Marshal(msg4)
-
-	if(err1 != nil || err2 != nil || err3 != nil || err4 != nil){
-		return errors.New("error occurred while marshaling")
-	}
-
+//	msg1 := chatclient.ChatMessage{"alockwoo", "awesome", "poopmaster", time.Now()}
+//	msg2 := chatclient.ChatMessage{"achaturv", "awesome", "golang ", time.Now()}
+//	msg3 := chatclient.ChatMessage{"skethu", "awesome", "i'm too cool", time.Now()}
+//	msg4 := chatclient.ChatMessage{"cgarrod", "awesome", "hahahaha!", time.Now()}
+//
+//	bytes1, err1 := json.Marshal(msg1)
+//	bytes2, err2 := json.Marshal(msg2)
+//	bytes3, err3 := json.Marshal(msg3)
+//	bytes4, err4 := json.Marshal(msg4)
+//
+//	if(err1 != nil || err2 != nil || err3 != nil || err4 != nil){
+//		return errors.New("error occurred while marshaling")
+//	}
+//
 //	args1 := &multipaxos.SendMessageArgs{
-	_ := &multipaxos.SendMessageArgs{
-		Value : bytes1,
-		Tester : multipaxos.Tester{
-			Stage : "sendCommit",
-			Time : "end",
-			Kill : false,
-			SleepTime : 30, //handle restarts somehow
-		},
-		PaxosPort : port2,
-	}
-
+//	&multipaxos.SendMessageArgs{
+//		Value : bytes1,
+//		Tester : multipaxos.Tester{
+//			Stage : "sendCommit",
+//			Time : "end",
+//			Kill : false,
+//			SleepTime : 30, //handle restarts somehow
+//		},
+//		PaxosPort : port2,
+//	}
+//
 //	args2 := &multipaxos.SendMessageArgs{
-	_ := &multipaxos.SendMessageArgs{
-		Value : bytes2,
-		Tester : multipaxos.Tester{
-			Stage : "sendPropose" ,
-			Time : "start",
-			Kill : false,
-			SleepTime : 15,
-		},
-		PaxosPort : port1,
-	}
-
+//	_ := &multipaxos.SendMessageArgs{
+//		Value : bytes2,
+//		Tester : multipaxos.Tester{
+//			Stage : "sendPropose" ,
+//			Time : "start",
+//			Kill : false,
+//			SleepTime : 15,
+//		},
+//		PaxosPort : port1,
+//	}
+//
 //	args3 := &multipaxos.SendMessageArgs{
-	_ := &multipaxos.SendMessageArgs{
-		Value : bytes3,
-		Tester : multipaxos.Tester{
-			Stage : "sendPropose",
-			Time : "start",
-			Kill : false,
-			SleepTime : 30,
-		},
-		PaxosPort : port1,
-	}
-
+//	_ := &multipaxos.SendMessageArgs{
+//		Value : bytes3,
+//		Tester : multipaxos.Tester{
+//			Stage : "sendPropose",
+//			Time : "start",
+//			Kill : false,
+//			SleepTime : 30,
+//		},
+//		PaxosPort : port1,
+//	}
+//
 //	args4 := &multipaxos.SendMessageArgs{
-	_ := &multipaxos.SendMessageArgs{
-		Value : bytes4,
-		Tester : multipaxos.Tester{
-			Stage : "",
-			Time : "",
-			Kill : false,
-			SleepTime : 0,
-		},
-		PaxosPort : port3,
-	}
-
+//	_ := &multipaxos.SendMessageArgs{
+//		Value : bytes4,
+//		Tester : multipaxos.Tester{
+//			Stage : "",
+//			Time : "",
+//			Kill : false,
+//			SleepTime : 0,
+//		},
+//		PaxosPort : port3,
+//	}
+//
 //	go cclient.SendMessage()
 
 	return nil

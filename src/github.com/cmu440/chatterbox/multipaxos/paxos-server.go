@@ -255,29 +255,29 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
 		}
 
-		err := (*ps.listener).Close()
-		if err != nil {
-			fmt.Println("Couldn't close listener")
-			return errors.New("couldn't close listener")
-		}
-
-		for _, conn := range ps.RPCConnections {
-			err = conn.Close()
-			if(err != nil){
-				fmt.Println("Couldn't close connection")
-				return err
-			}
-		}
+//		err := (*ps.listener).Close()
+//		if err != nil {
+//			fmt.Println("Couldn't close listener")
+//			return errors.New("couldn't close listener")
+//		}
+//
+//		for _, conn := range ps.RPCConnections {
+//			err = conn.Close()
+//			if(err != nil){
+//				fmt.Println("Couldn't close connection")
+//				return err
+//			}
+//		}
 
 		if !tester.Kill{
-			Active = true
+			Active = false
 			cmd := exec.Command("sleep", "5")
 			err = cmd.Start()
 			if err != nil {
 				fmt.Println("Couldnt do the exec sleep thign :'(")
 			}
 			time.Sleep(time.Second*time.Duration(tester.SleepTime))
-			Active = false
+			Active = true
 			fmt.Println("STARTING AGAIN", ps.Port)
 			ps.CreatePaxosConnections()
 		}
@@ -357,18 +357,20 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 	fmt.Println("Done with check kill")
 
 	if ps.MaxSeenProposalID > ps.ProposalID {
+		//update the proposal id to the now highest seen proposal id
 		ps.ProposalID = ps.MaxSeenProposalID + 1
 	} else {
 		ps.ProposalID++
 	}
 
 	majority := ps.NumNodes/2 + ps.NumNodes%2
+	//initialize with lowest possible proposal num
 	maxPair := &KeyValuePair{-1, nil}
 
 	if len(ps.RPCConnections) == 0{
 		err := ps.CreatePaxosConnections()
-		if err == nil {
-			fmt.Println("Error Occured", err)
+		if err != nil {
+			fmt.Println("Error Occurred", err)
 		}
 	}
 
@@ -381,16 +383,11 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 		proposeReply := &ProposeReplyArgs{}
 
-		if port == ps.Port {
-		}
-
 		call := conn.Go("PaxosServer.HandleProposeRequest", proposeArgs, proposeReply, nil)
 		timer := time.NewTimer(time.Second*2)
 
 		select {
 		case replyCall := <- call.Done:
-			if port == ps.Port {
-			}
 
 			if replyCall.Error != nil {
 				fmt.Println("Error while calling HandleProposeRequest", replyCall.Error)
@@ -427,7 +424,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 				}
 			}
 		case _ = <-timer.C:
-			fmt.Println("RPC Call timedout", ps.Port, "Call to", port)
+			fmt.Println("RPC Call timed out", ps.Port, "Call to", port)
 			continue
 		}
 	}
@@ -563,6 +560,10 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 			commitMsg := ps.ToCommitQueue.Front().Value.(KeyValuePair)
 			reply.Pair = &KeyValuePair{commitMsg.ProposalID, commitMsg.Value}
 		}
+	} else {
+		reply.RoundID = ps.RoundID
+		reply.Accepted = false
+		return errors.New("Server is Sleeping")
 	}
 	return nil
 }
