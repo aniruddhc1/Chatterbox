@@ -52,6 +52,7 @@ type paxosServer struct {
 
 	RegisterLock *sync.Mutex
 	chanListener chan int
+
 }
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
@@ -126,7 +127,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 
 	//Wait till all paxos servers in group have joined
 	for {
-		fmt.Println("TRYING", paxosServer.Port)
 		args := &RegisterArgs{paxosServer.Port}
 		reply := &RegisterReplyArgs{}
 		var err error
@@ -164,11 +164,9 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 }
 
 func (ps *paxosServer) CreatePaxosConnections() error{
-	fmt.Println("Adding rpc connections for", ps.Port)
 	//Create rpc connections to all servers
 	for i := 0; i < ps.NumNodes; i++ {
 		currPort := ps.Servers[i]
-		fmt.Println(currPort, ps.Port)
 		serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(currPort))
 		if dialErr != nil {
 			fmt.Println("Error occured while dialing to all servers", dialErr)
@@ -238,28 +236,24 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
-
+	fmt.Println("In Check Kill", ps.Port)
 	var err error
-
 	if tester.Stage == currStage && tester.Time == currTime {
 		if tester.Kill {
 			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,"Stopping at", currStage, currTime)
+
 		} else {
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
 		}
 
-		fmt.Println("Closign listener")
 		err := (*ps.listener).Close()
 		if err != nil {
 			fmt.Println("Couldn't close listener")
 		}
 
-		fmt.Println("Closing all connections")
 		for _, conn := range ps.RPCConnections {
 			err = conn.Close()
 		}
-		fmt.Println("Done Closing all connections")
-
 
 		if !tester.Kill{
 			cmd := exec.Command("sleep", "5")
@@ -267,15 +261,11 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 			if err != nil {
 				fmt.Println("Couldnt do the exec sleep thign :'(")
 			}
-
-
 			time.Sleep(time.Second*time.Duration(tester.SleepTime))
 			fmt.Println("STARTING AGAIN", ps.Port)
 			ps.CreatePaxosConnections()
 		}
 	}
-
-
 
 	return err
 }
@@ -344,7 +334,9 @@ func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs)
 
 //Functions related to Proposer
 func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error {
+	fmt.Println("In Propose", ps.Port)
 	ps.CheckKill(&args.Tester, "sendPropose", "start")
+	fmt.Println("Done with check kill")
 
 	if ps.MaxSeenProposalID > ps.ProposalID {
 		ps.ProposalID = ps.MaxSeenProposalID + 1
@@ -362,7 +354,8 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 	}
 
-	for _, conn := range ps.RPCConnections  {
+	for port, conn := range ps.RPCConnections  {
+		fmt.Println("Sending Propose messages", port)
 		proposeArgs := &ProposeArgs{
 			RoundID:    ps.RoundID,
 			ProposalID: ps.ProposalID,
@@ -370,45 +363,59 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		}
 		proposeReply := &ProposeReplyArgs{}
 
-		err := conn.Call("PaxosServer.HandleProposeRequest", proposeArgs, proposeReply)
-		if err != nil {
-			fmt.Println("Error while calling HandleProposeRequest", err)
+		if port == ps.Port {
 		}
 
-		fmt.Println("Proposing reply port", proposeReply.AcceptorPort, "round ", proposeReply.RoundID, "accepted? ",
-			proposeReply.Accepted, "Pair is ", proposeReply.Pair, "Proposer is", ps.Port)
+		call := conn.Go("PaxosServer.HandleProposeRequest", proposeArgs, proposeReply, nil)
+		timer := time.NewTimer(time.Second*2)
 
-		if time.Now().UnixNano()%2 == 0 {
-			ps.CheckKill(&args.Tester, "sendPropose", "mid")
-		}
+		select {
+		case replyCall := <- call.Done:
+			if port == ps.Port {
+			}
 
-		if proposeReply.Pair != nil {
-			if proposeReply.Pair.ProposalID > ps.MaxSeenProposalID {
-				ps.MaxSeenProposalID = proposeReply.Pair.ProposalID
-			}
-		}
+			if replyCall.Error != nil {
+				fmt.Println("Error while calling HandleProposeRequest", replyCall.Error)
+				continue
+			} else {
+				fmt.Println("Proposing reply port", proposeReply.AcceptorPort, "round ", proposeReply.RoundID, "accepted? ",
+					proposeReply.Accepted, "Pair is ", proposeReply.Pair, "Proposer is", ps.Port)
 
-		if proposeReply.RoundID != ps.RoundID {
-			fmt.Println("Propose Round Id's do not match need to recover my round id:",ps.RoundID, "proposeReply id", proposeReply.RoundID)
-			err := ps.SendRecover()
-			if err != nil {
-				fmt.Println("Couldn't recover", err)
+				if time.Now().UnixNano()%2 == 0 {
+					ps.CheckKill(&args.Tester, "sendPropose", "mid")
+				}
+
+				if proposeReply.Pair != nil {
+					if proposeReply.Pair.ProposalID > ps.MaxSeenProposalID {
+						ps.MaxSeenProposalID = proposeReply.Pair.ProposalID
+					}
+				}
+
+				if proposeReply.RoundID != ps.RoundID {
+					fmt.Println("Propose Round Id's do not match need to recover my round id:",ps.RoundID, "proposeReply id", proposeReply.RoundID)
+					err := ps.SendRecover()
+					if err != nil {
+						fmt.Println("Couldn't recover", err)
+					}
+				} else if proposeReply.Accepted {
+					fmt.Println(proposeReply.AcceptorPort, "Accepted!")
+					ps.ProposeAcceptedQueue.PushBack(proposeReply)
+					if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
+						maxPair.ProposalID = proposeReply.Pair.ProposalID
+						maxPair.Value = proposeReply.Pair.Value
+					}
+				} else {
+					continue
+				}
 			}
-		} else if proposeReply.Accepted {
-			fmt.Println(proposeReply.AcceptorPort, "Accepted!")
-			ps.ProposeAcceptedQueue.PushBack(proposeReply)
-			if proposeReply.Pair != nil && proposeReply.Pair.ProposalID > maxPair.ProposalID {
-				maxPair.ProposalID = proposeReply.Pair.ProposalID
-				maxPair.Value = proposeReply.Pair.Value
-			}
-		} else {
+		case _ = <-timer.C:
+			fmt.Println("RPC Call timedout", ps.Port, "Call to", port)
 			continue
 		}
 	}
 
 	ps.CheckKill(&args.Tester, "sendPropose", "end")
 	fmt.Println("The majority is", majority, "Num accepted is", ps.ProposeAcceptedQueue.Len())
-
 	if ps.ProposeAcceptedQueue.Len() >= majority {
 		if maxPair.ProposalID != -1 {
 			fmt.Println("maxpair not nil, sending accept request  ", maxPair.ProposalID)
@@ -424,6 +431,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte, tester *Tester) error {
 	fmt.Println("Sending Accept Requests")
 	ps.CheckKill(tester, "sendAccept", "start")
+
 	majority := ps.NumNodes/2 + ps.NumNodes%2
 
 	for e := acceptors.Front(); e != nil; e = e.Next() {
@@ -454,7 +462,6 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 	}
 
 	_ = ps.CheckKill(tester, "sendAccept", "end")
-
 	if ps.AcceptedQueue.Len() >= majority {
 		err := ps.SendCommit(acceptors, value, tester)
 		return err
@@ -501,7 +508,6 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 			fmt.Println("error in send commit request ", err)
 		}
 	}
-
 	ps.CheckKill(tester, "sendCommit", "end")
 
 	return nil
@@ -509,7 +515,6 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 
 //Functions related to Acceptor
 func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error {
-
 	fmt.Println("Handle Propose Request")
 	reply.RoundID = ps.RoundID
 	reply.AcceptorPort = ps.Port
