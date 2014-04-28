@@ -157,7 +157,6 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 
 func (user *User) SendMessagesToUser() error{
 	for {
-		//TODO every 2 seconds get the logs and get diff and send new messages to the gui
 		time.Sleep(time.Second*2)
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
@@ -203,4 +202,15 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 
 func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
 	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
+}
+
+
+func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.FileReply) error{
+	conn := PaxosServerConnections[args.Port]
+	err := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
+
+	if(err != nil){
+		return err
+	}
+	return nil
 }

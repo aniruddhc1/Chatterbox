@@ -8,6 +8,9 @@ import (
 	"github.com/cmu440/chatterbox/chatclient"
 	"encoding/json"
 	"github.com/cmu440/chatterbox/multipaxos"
+	"bufio"
+	"io/ioutil"
+	"bytes"
 )
 
 
@@ -71,6 +74,8 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 	return nil
 }
 
+
+
 /*
  * Does one iteration of paxos with the failure of first proposer after sending
  * accept messages. Test that it commits the right message (the first one should be
@@ -91,6 +96,8 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 		return errors.New("error occurred while marshaling msg2 in testBasic2")
 	}
 
+
+
 	args1 := &multipaxos.SendMessageArgs{Value : bytes1,
 										Tester : multipaxos.Tester{
 											Stage : "sendAccept",
@@ -108,15 +115,68 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 										},
 										PaxosPort : port2}
 
+	//look at file before
+
+	fileArgs := &multipaxos.FileArgs{
+		Port : port1,
+	}
+	fileReply1 := &multipaxos.FileReply{}
+
+	cClient1.GetLogFile(fileArgs, fileReply1)
+
 	err := cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+
+	fileReply2 := &multipaxos.FileReply{}
+	cClient1.GetLogFile(fileArgs, fileReply2)
+
+	replyBytes1, err := ioutil.ReadAll(bufio.NewReader(fileReply1.File))
+	if(err != nil){
+		return err
+	}
+
+	replyBytes2, err2 := ioutil.ReadAll(bufio.NewReader(fileReply2.File))
+	if(err2 != nil){
+		return err2
+	}
+
+	if(bytes.Compare(replyBytes1, replyBytes2) != 0){
+		return errors.New("commit went through in spite of killing the server after sendAccept phase")
+	}
+
+	//look at file after and do a diff
 
 	if(err != nil){
 		return err
 	}
 
-	err2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
-	if(err2 != nil){
-		return err2
+	error2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	if(error2 != nil){
+		return error2
+	}
+
+	fileReply3 := &multipaxos.FileReply{}
+	cClient1.GetLogFile(fileArgs, fileReply3)
+	replyBytes3, err3 := ioutil.ReadAll(bufio.NewReader(fileReply3.File))
+
+	if(err3 != nil){
+		return err3
+	}
+
+	if(bytes.Compare(replyBytes2, replyBytes3) == 0){
+		return errors.New("nothing added to the log file!!")
+	} else{
+		var line3 string
+		var err3 error
+		for {
+			line3, err3 = bufio.NewReader(fileReply3.File).ReadString('\n')
+			if err3 != nil {
+				break
+			}
+		}
+		Line3, _ := json.Marshal(line3)
+		if bytes.Compare(Line3, replyBytes2) == 0 && bytes.Compare(Line3, replyBytes1) != 0 {
+			errors.New("message 1 did not get added to the file!")
+		}
 	}
 
 	//TODO this is working but Ani will create a function that will look at the log file before first send message

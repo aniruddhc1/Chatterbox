@@ -6,8 +6,7 @@ package multipaxos
    If it fails make it start the paxos again
 2. Do the exponential backoff stuff to prevent livelock
 3. Change recovery from logs to a complete file based log system
-4. Write a lot more tests,
-.
+4. Write a lot more tests
 */
 
 import (
@@ -96,7 +95,7 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		chanListener : make(chan int),
 	}
 
-	//Register the server http://angusmacdonald.me/writing/paxos-by-example/to RPC
+	//Register the server http://angusmacdonald.me/writing/paxos-by-example/ to RPC
 	errRegister := rpc.RegisterName("PaxosServer", Wrap(paxosServer))
 	if errRegister != nil {
 		fmt.Println("An error occured while doing rpc register", errRegister)
@@ -216,7 +215,11 @@ type FileReply struct{
 	File *os.File
 }
 
-func (ps *paxosServer) ServeMessageFile(args *CommitReplyArgs, reply *FileReply) error{
+type FileArgs struct{
+	Port int
+}
+
+func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	reply.File = ps.CommittedMsgsFile
 
 	return nil
@@ -471,6 +474,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 	fmt.Println("Send Commit")
 	ImAnAcceptor := false
 
+	fmt.Println(acceptors.Len())
 	for e := acceptors.Front(); e != nil; e = e.Next() {
 		reply := e.Value.(*ProposeReplyArgs)
 
