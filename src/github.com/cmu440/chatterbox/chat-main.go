@@ -22,14 +22,13 @@ func main() {
 
 	if *startChat {
 		time.Sleep(time.Second *3)
+		fmt.Println(*port)
 		_, err := chatclient.NewChatClient(strconv.Itoa(*port), 8080)
 
 		if err != nil {
-			fmt.Println("hi")
 			fmt.Println("Couldnt start a new chat client - Fail")
 			return
 		}
-
 
 		select{}
 	} else if *isMaster {
