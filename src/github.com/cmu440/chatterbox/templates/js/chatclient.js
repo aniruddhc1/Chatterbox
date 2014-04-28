@@ -22,3 +22,6 @@ function SendMessage(msg) {
 	
 }
 
+function AddRoom(roomName){
+
+}

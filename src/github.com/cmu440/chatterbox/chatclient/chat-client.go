@@ -35,7 +35,6 @@ type Message struct{
 }
 
 type ChatClient struct {
-
 }
 
 
