@@ -54,7 +54,6 @@ type paxosServer struct {
 	RegisterLock *sync.Mutex
 	chanListener chan int
 
-	TestLock *sync.Mutex
 }
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
@@ -95,7 +94,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 
 		RegisterLock: &sync.Mutex{},
 		chanListener : make(chan int),
-		TestLock : &sync.Mutex{},
 	}
 
 	//Register the server http://angusmacdonald.me/writing/paxos-by-example/to RPC
@@ -238,7 +236,6 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	fmt.Println("In Check Kill", ps.Port)
 	var err error
 	if tester.Stage == currStage && tester.Time == currTime {
-		ps.TestLock.Lock()
 		if tester.Kill {
 			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,"Stopping at", currStage, currTime)
 
@@ -264,7 +261,6 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 			time.Sleep(time.Second*time.Duration(tester.SleepTime))
 			fmt.Println("STARTING AGAIN", ps.Port)
 			ps.CreatePaxosConnections()
-			ps.TestLock.Unlock()
 		}
 	}
 
@@ -339,7 +335,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 	ps.CheckKill(&args.Tester, "sendPropose", "start")
 	fmt.Println("Done with check kill")
 
-	ps.TestLock.Lock()
 	if ps.MaxSeenProposalID > ps.ProposalID {
 		ps.ProposalID = ps.MaxSeenProposalID + 1
 	} else {
@@ -366,7 +361,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		proposeReply := &ProposeReplyArgs{}
 
 		if port == ps.Port {
-			ps.TestLock.Unlock()
 		}
 
 		call := conn.Go("PaxosServer.HandleProposeRequest", proposeArgs, proposeReply, nil)
@@ -375,7 +369,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 		select {
 		case replyCall := <- call.Done:
 			if port == ps.Port {
-				ps.TestLock.Lock()
 			}
 
 			if replyCall.Error != nil {
@@ -386,13 +379,7 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 					proposeReply.Accepted, "Pair is ", proposeReply.Pair, "Proposer is", ps.Port)
 
 				if time.Now().UnixNano()%2 == 0 {
-					if port != ps.Port {
-						ps.TestLock.Unlock()
-					}
 					ps.CheckKill(&args.Tester, "sendPropose", "mid")
-					if port != ps.Port {
-						ps.TestLock.Lock()
-					}
 				}
 
 				if proposeReply.Pair != nil {
@@ -420,14 +407,9 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 			}
 		case _ = <-timer.C:
 			fmt.Println("RPC Call timedout", ps.Port, "Call to", port)
-			if port == ps.Port {
-				ps.TestLock.Lock()
-			}
 			continue
 		}
 	}
-
-	ps.TestLock.Unlock()
 
 	ps.CheckKill(&args.Tester, "sendPropose", "end")
 	fmt.Println("The majority is", majority, "Num accepted is", ps.ProposeAcceptedQueue.Len())
@@ -446,7 +428,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte, tester *Tester) error {
 	fmt.Println("Sending Accept Requests")
 	ps.CheckKill(tester, "sendAccept", "start")
-	ps.TestLock.Lock()
 
 	majority := ps.NumNodes/2 + ps.NumNodes%2
 
@@ -477,7 +458,6 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 		}
 	}
 
-	ps.TestLock.Unlock()
 	_ = ps.CheckKill(tester, "sendAccept", "end")
 	if ps.AcceptedQueue.Len() >= majority {
 		err := ps.SendCommit(acceptors, value, tester)
@@ -488,7 +468,6 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 
 func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Tester) error {
 	ps.CheckKill(tester, "sendCommit", "start")
-	ps.TestLock.Lock()
 	fmt.Println("Send Commit")
 	ImAnAcceptor := false
 
@@ -525,7 +504,6 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 			fmt.Println("error in send commit request ", err)
 		}
 	}
-	ps.TestLock.Unlock()
 	ps.CheckKill(tester, "sendCommit", "end")
 
 	return nil
@@ -534,8 +512,6 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 //Functions related to Acceptor
 func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error {
 	fmt.Println("Handle Propose Request")
-	ps.TestLock.Lock()
-	fmt.Println("Inside Lock")
 	reply.RoundID = ps.RoundID
 	reply.AcceptorPort = ps.Port
 
@@ -564,19 +540,16 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 		commitMsg := ps.ToCommitQueue.Front().Value.(KeyValuePair)
 		reply.Pair = &KeyValuePair{commitMsg.ProposalID, commitMsg.Value}
 	}
-	ps.TestLock.Unlock()
 	return nil
 }
 
 func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *AcceptReplyArgs) error {
-	ps.TestLock.Lock()
 	fmt.Println("Handle Accept Request")
 	reply.RoundID = ps.RoundID
 	reply.AcceptorPort = ps.Port
 
 	if args.RoundID < ps.RoundID {
 		reply.Accepted = false
-		ps.TestLock.Unlock()
 		return nil
 	} else if args.RoundID > ps.RoundID {
 		err := ps.SendRecover()
@@ -585,25 +558,21 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 		}
 	} else if ps.MaxPromisedID >= args.ProposalID {
 		reply.Accepted = false
-		ps.TestLock.Unlock()
 		return nil
 	}
 
 	ps.ToCommitQueue.PushBack(KeyValuePair{args.ProposalID, args.Value})
 	reply.Accepted = true
-	ps.TestLock.Unlock()
 	return nil
 }
 
 func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error {
-	ps.TestLock.Lock()
 	fmt.Println("Handle commit message paxos server", ps.Port)
 
 	ps.CommittedMsgs[args.RoundID] = args.Value
 
 	_, err := ps.CommittedMsgsFile.Write(args.Value)
 	if(err != nil){
-		ps.TestLock.Unlock()
 		return err
 	}
 
@@ -626,7 +595,6 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error 
 			break
 		}
 	}
-	ps.TestLock.Unlock()
 	return nil
 }
 
