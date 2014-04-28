@@ -21,7 +21,6 @@ function NewUser(userName) {
     alert(userName)
 
     if ('WebSocket' in window){
-        alert("ws://localhost:1050/chat?username="+userName)
         /* WebSocket is supported. You can proceed with your code*/
         connection = new WebSocket("ws://localhost:1050/")
 

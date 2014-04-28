@@ -8,8 +8,8 @@ import (
 	"errors"
 	"net/rpc"
 	"net/http"
-	"strconv"
-	"net"
+	//"strconv"
+	//"net"
 	"encoding/json"
 	"time"
 	"math/rand"
@@ -51,7 +51,7 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 	//TODO setup ClientConn, and Paxos Servers
 	chatclient := &ChatClient{}
 
-	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
+	/*errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
 	if errRegister != nil {
 		fmt.Println("Couldln't register test chat client", errRegister)
 		return nil, errRegister
@@ -105,6 +105,15 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 			PaxosServerConnections[currPort] = serverConn
 		}
 	}
+
+
+	*/
+
+	fmt.Println("HEREEE")
+	http.Handle("/", http.FileServer(http.Dir(".")))
+	http.Handle("/chat", websocket.Handler(chatclient.NewUser))
+	fmt.Println("HEREEEEEEEE")
+	go http.ListenAndServe(":"+port, nil)
 
 	fmt.Println("Finished Creating New Chat Client")
 	return chatclient, nil
