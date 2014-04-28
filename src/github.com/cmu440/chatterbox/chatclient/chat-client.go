@@ -8,12 +8,13 @@ import (
 	"errors"
 	"net/rpc"
 	"net/http"
-	//"strconv"
-	//"net"
+	"strconv"
+	"net"
 	"encoding/json"
 	"time"
 	"math/rand"
 	"bufio"
+	"io/ioutil"
 )
 
 type User struct{
@@ -50,7 +51,7 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 	//TODO setup ClientConn, and Paxos Servers
 	chatclient := &ChatClient{}
 
-	/*errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
+	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
 	if errRegister != nil {
 		fmt.Println("Couldln't register test chat client", errRegister)
 		return nil, errRegister
@@ -105,14 +106,11 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 		}
 	}
 
-
-	*/
-
 	fmt.Println("HEREEE")
-	http.Handle("/", http.FileServer(http.Dir(".")))
-	http.Handle("/chat", websocket.Handler(chatclient.NewUser))
+//	http.Handle("/", http.FileServer(http.Dir(".")))
+	http.HandleFunc("/", startPageHandler)
+	http.HandleFunc("/chat", chatPageHandler)
 	fmt.Println("HEREEEEEEEE")
-	go http.ListenAndServe(":"+port, nil)
 
 	fmt.Println("Finished Creating New Chat Client")
 	return chatclient, nil
@@ -196,6 +194,33 @@ func (user *User) SendMessagesToUser() error{
 	return nil
 }
 
+type Page struct{
+	Title string
+	Body []byte
+}
+
+func loadPage(title string) (*Page, error) {
+	body, err := ioutil.ReadFile(title)
+	if(err != nil){
+		fmt.Println("Couldn't get file", err)
+		return nil, err
+	}
+	return &Page{
+		Title: title,
+		Body: body,
+	}, nil
+}
+
+func chatPageHandler(w http.ResponseWriter, r *http.Request){
+	p, _ := loadPage("index.html")
+
+	fmt.Fprintf(w, "%s \n %s", p.Title, p.Body)
+}
+
+func startPageHandler(w http.ResponseWriter, r *http.Request){
+	p, _ := loadPage("startPage.html")
+	fmt.Fprintf(w, "%s \n %s", p.Title, p.Body)
+}
 
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
 
