@@ -8,8 +8,8 @@ import (
 	"errors"
 	"net/rpc"
 	"net/http"
-	"strconv"
-	"net"
+	//"strconv"
+	//"net"
 	"encoding/json"
 	"time"
 	"math/rand"
@@ -46,11 +46,11 @@ var Hostport string
 var PaxosServerConnections map[int] *rpc.Client
 
 func NewChatClient(port string, paxosPort int) (*ChatClient, error){
-
+	fmt.Println("Starting a New Chat Client")
 	//TODO setup ClientConn, and Paxos Servers
 	chatclient := &ChatClient{}
 
-	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
+	/*errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
 	if errRegister != nil {
 		fmt.Println("Couldln't register test chat client", errRegister)
 		return nil, errRegister
@@ -105,6 +105,16 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 		}
 	}
 
+
+	*/
+
+	fmt.Println("HEREEE")
+	http.Handle("/", http.FileServer(http.Dir(".")))
+	http.Handle("/chat", websocket.Handler(chatclient.NewUser))
+	fmt.Println("HEREEEEEEEE")
+	go http.ListenAndServe(":"+port, nil)
+
+	fmt.Println("Finished Creating New Chat Client")
 	return chatclient, nil
 }
 
@@ -119,15 +129,16 @@ func (cc *ChatClient) GetUsers() error {
 }
 
 //TODO called by the http.Handler when we set up the rendering stuff
-func NewUser(ws *websocket.Conn) error {
-
+func (cc *ChatClient) NewUser(ws *websocket.Conn) {
+	fmt.Println("Creating New User")
 	username := ws.Request().URL.Query().Get("username")
 
 	if username == "" {
 		err := errors.New("invalid input for user")
 		marshalled, err := json.Marshal(err)
 		ws.Write(marshalled)
-		return err
+		fmt.Println(err)
+		return
 	}
 
 	joiningUser := &User{
@@ -142,7 +153,6 @@ func NewUser(ws *websocket.Conn) error {
 	//go joiningUser.GetInfoFromUser(ws)
 	//go joiningUser.SendMessagesToUser()
 
-	return nil
 }
 
 func (user *User) GetInfoFromUser (ws *websocket.Conn) {

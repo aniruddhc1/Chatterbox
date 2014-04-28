@@ -1,3 +1,5 @@
+var connection      //websocket connection
+
 function JoinRoom() {
 	roomName = document.getElementById("roomName").value
 	
@@ -15,15 +17,17 @@ function JoinRoom() {
 }  
 
 function NewUser(userName) {
+    userName = document.getElementById("userNameTextBox").value
+    alert(userName)
+
     if ('WebSocket' in window){
         /* WebSocket is supported. You can proceed with your code*/
-        var connection = new WebSocket('ws://localhost:1050');
+        connection = new WebSocket("ws://localhost:1050/")
 
         connection.onopen = function(){
            /*Send a small message to the console once the connection is established */
            alert('Connection open!');
         }
-
 
         /*
             To send messages to this function from server do something like this:
@@ -46,7 +50,7 @@ function NewUser(userName) {
 }  
 
 function SendMessage(msg) {
-	
+	connection.send('Hey server, whats up?');
 }
 
 function AddRoom(roomName){
