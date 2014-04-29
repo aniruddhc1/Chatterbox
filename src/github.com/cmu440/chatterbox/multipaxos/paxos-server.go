@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"time"
 	"sync"
-	"os/exec"
 )
 
 type paxosServer struct {
@@ -51,7 +50,8 @@ type paxosServer struct {
 	CommittedMsgsFile *os.File
 
 	RegisterLock *sync.Mutex
-	chanListener chan int
+
+	wakeupChan chan bool
 
 }
 
@@ -94,7 +94,8 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		CommittedMsgsFile: file,
 
 		RegisterLock: &sync.Mutex{},
-		chanListener : make(chan int),
+
+		wakeupChan : make(chan bool),
 	}
 
 	Active = true // set to false if need to block all the rpc functions
@@ -241,6 +242,19 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 	return nil
 }
 
+type WakeupRequestArgs struct{
+
+}
+
+type WakeupReplyArgs struct{
+
+}
+
+func (ps *paxosServer) WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error{
+	ps.wakeupChan <- true
+	return nil
+}
+
 //Functions related to Testing
 func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) error {
 	//  sendPropose, sendAccept, sendCommit, receivePropose
@@ -250,39 +264,23 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	var err error
 	if tester.Stage == currStage && tester.Time == currTime {
 		if tester.Kill {
-			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,"Stopping at", currStage, currTime)
+			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time, "Stopping at", currStage, currTime)
+			t := time.NewTimer(42000 * time.Second)
+			select{
+			case <- t.C:
+				//do nothing
+			case <- ps.wakeupChan:
+				t.Reset(42 * time.Nanosecond) //for teh shiggles
+			}
 		} else {
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
-		}
-
-//		err := (*ps.listener).Close()
-//		if err != nil {
-//			fmt.Println("Couldn't close listener")
-//			return errors.New("couldn't close listener")
-//		}
-//
-//		for _, conn := range ps.RPCConnections {
-//			err = conn.Close()
-//			if(err != nil){
-//				fmt.Println("Couldn't close connection")
-//				return err
-//			}
-//		}
-
-		if !tester.Kill{
 			Active = false
-			cmd := exec.Command("sleep", "5")
-			err = cmd.Start()
-			if err != nil {
-				fmt.Println("Couldnt do the exec sleep thign :'(")
-			}
-			time.Sleep(time.Second*time.Duration(tester.SleepTime))
+			time.Sleep(time.Second * time.Duration(tester.SleepTime))
 			Active = true
 			fmt.Println("STARTING AGAIN", ps.Port)
 			ps.CreatePaxosConnections()
 		}
 	}
-
 	return err
 }
 

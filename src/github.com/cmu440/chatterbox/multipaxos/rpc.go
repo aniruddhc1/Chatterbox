@@ -9,6 +9,7 @@ type RemotePaxosServer interface {
 	HandleCommit(args *CommitArgs, reply *CommitReplyArgs) error
 	GetServers(args *GetServersArgs, reply *GetServersReply) error
 	ServeMessageFile(args *FileArgs, reply *FileReply) error
+	WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error
 }
 
 type PaxosServer struct {
