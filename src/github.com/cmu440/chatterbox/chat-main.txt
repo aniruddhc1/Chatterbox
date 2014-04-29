@@ -19,7 +19,6 @@ func main() {
 	port := flag.Int("port", 1111, "to specify the port number to start the master server on")
 	flag.Parse()
 
-
 	if *startChat {
 		time.Sleep(time.Second *3)
 		fmt.Println(*port)
