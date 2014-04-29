@@ -227,6 +227,7 @@ type FileArgs struct{
 
 func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	if(Active) {
+		fmt.Println("Sending the file back to the client!")
 		reply.File = ps.CommittedMsgsFile
 	}
 	return nil
