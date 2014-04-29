@@ -1,8 +1,6 @@
 package main
 
 import (
-	//"net/http"
-	//"code.google.com/p/go.net/websocket"
 	"github.com/cmu440/chatterbox/chatclient"
 	"fmt"
 	"flag"

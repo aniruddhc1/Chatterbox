@@ -7,4 +7,4 @@ def purge(dir, pattern):
             os.remove(os.path.join(dir, f))
 
 
-purge("/Users/soumyakethu/go/p3-impl", "8080\||9090\||8081\||8082\||8083\||9990\|")
+purge(os.getcwd(), "8080\||9090\||8081\||8082\||8083\||9990\|")
