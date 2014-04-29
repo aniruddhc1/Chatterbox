@@ -14,28 +14,24 @@ function JoinRoom() {
 	
 	li.appendChild(a);
 	ul.appendChild(li);
-}  
+}
 
 function NewUser() {
     userName = document.getElementById("userNameTextBox").value
     alert(userName)
-}  
 
-function SendMessage(msg) {
-	connection.send('Hey server, whats up?');
-}
-
-function AddRoom(roomName){
-
-}
-
-if ('WebSocket' in window){
+    if ('WebSocket' in window){
         /* WebSocket is supported. You can proceed with your code*/
-        connection = new WebSocket("ws://localhost:1050")
+        connection = new WebSocket("ws://localhost:1050/join?username="+userName)
 
         connection.onopen = function(){
            /*Send a small message to the console once the connection is established */
            alert('Connection open!');
+
+           document.getElementById("startPage").style.display = "none";
+
+           document.getElementById("mainPage").style.display = "block";
+
         }
 
         /*
@@ -49,6 +45,7 @@ if ('WebSocket' in window){
 
         connection.onmessage = function(e){
            var server_message = e.data;
+           alert(server_message)
            console.log(server_message);
         }
 
@@ -56,3 +53,18 @@ if ('WebSocket' in window){
         /*WebSockets are not supported. Try a fallback method like long-polling etc*/
         alert("Sorry you can't use our awesome chatterbox because your browser doesn't support websockets")
     }
+
+
+
+}  
+
+function SendMessage(msg) {
+    alert("Sending a Message");
+    msg = document.getElementById("message").value;
+	connection.send(msg);
+}
+
+function AddRoom(roomName){
+
+}
+

@@ -12,11 +12,11 @@ import (
 
 func main() {
 
-	isMaster := flag.Bool("isMaster", false, "to check if its a master server or not ")
-	startChat := flag.Bool("startChat", false, "start test cases once all servers have been registered")
+	isMaster := flag.Bool("isMaster", false, "to check if its a master server or not")
 
 	N := flag.Int("N", 0, "to specify the number of servers")
 	port := flag.Int("port", 1111, "to specify the port number to start the master server on")
+	startChat := flag.Bool("startChat", false, "start test cases once all servers have been registered")
 	flag.Parse()
 
 	if *startChat {

@@ -223,12 +223,14 @@ func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	if(Active) {
 		fmt.Println("given the file")
 		fmt.Println(ps.CommittedMsgsFile.Name())
-		replyBytes, err := ioutil.ReadAll(bufio.NewReader(ps.CommittedMsgsFile))
+		replyBytes, err := ioutil.ReadFile(ps.CommittedMsgsFile.Name())
+
 		if(err != nil){
 			return err
 		}
 		reply.File = replyBytes
-		fmt.Println("in serve message file ***** ", reply.File)
+		fmt.Println("in serve message file ***** ", replyBytes)
+
 		if err != nil{
 			fmt.Println(err)
 			return err

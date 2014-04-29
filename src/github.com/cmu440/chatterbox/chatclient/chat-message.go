@@ -19,7 +19,7 @@ func (msg *ChatMessage) ToString() (string, error) {
 	}
 
 	if msg.Room == "" {
-		return "", errors.New("Message doesn't have user")
+		return "", errors.New("Message doesn't have room")
 	}
 
 	if msg.Content == "" {
