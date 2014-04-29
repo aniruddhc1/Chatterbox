@@ -91,3 +91,19 @@ type GetCommitMsgsArgs struct {
 type GetCommitMsgsReply struct {
 	//TODO
 }
+
+type FileReply struct{
+	File []byte
+}
+
+type FileArgs struct{
+	Port int
+}
+
+type WakeupRequestArgs struct{
+
+}
+
+type WakeupReplyArgs struct{
+
+}

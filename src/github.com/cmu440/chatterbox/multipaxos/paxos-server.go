@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 	"sync"
+	"encoding/json"
 )
 
 type paxosServer struct {
@@ -54,6 +55,7 @@ type paxosServer struct {
 	wakeupChan chan bool
 
 }
+
 
 	var Active bool
 
@@ -198,7 +200,6 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 			}
 		}
 
-
 		if !alreadyJoined {
 			fmt.Println("IN REGISTER", ps.NumConnected, args.Port)
 			ps.Servers[ps.NumConnected] = args.Port
@@ -218,17 +219,17 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return nil
 }
 
-type FileReply struct{
-	File *os.File
-}
-
-type FileArgs struct{
-	Port int
-}
 
 func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	if(Active) {
-		reply.File = ps.CommittedMsgsFile
+		var err error
+		fmt.Println("given the file")
+		fmt.Println(ps.CommittedMsgsFile.Name())
+		reply.File, err = json.Marshal(ps.CommittedMsgsFile)
+		if err != nil{
+			fmt.Println(err)
+			return err
+		}
 	}
 	return nil
 }
@@ -242,13 +243,7 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 	return nil
 }
 
-type WakeupRequestArgs struct{
 
-}
-
-type WakeupReplyArgs struct{
-
-}
 
 func (ps *paxosServer) WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error{
 	ps.wakeupChan <- true
@@ -260,17 +255,21 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
-	fmt.Println("In Check Kill", ps.Port)
+	fmt.Println("In Check Kill", ps.Port, "stage", currStage, "time", currTime)
 	var err error
 	if tester.Stage == currStage && tester.Time == currTime {
+		fmt.Println("got into if statement in check kill")
 		if tester.Kill {
 			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time, "Stopping at", currStage, currTime)
-			t := time.NewTimer(42000 * time.Second)
+			Active = false
+			t := time.NewTimer(60 * time.Second)
 			select{
 			case <- t.C:
+				Active = true
 				//do nothing
 			case <- ps.wakeupChan:
-				t.Reset(42 * time.Nanosecond) //for teh shiggles
+				Active = true
+				t.Stop()
 			}
 		} else {
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
@@ -522,7 +521,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 		}
 	}
 	ps.CheckKill(tester, "sendCommit", "end")
-
+	fmt.Println("end of send commit ")
 	return nil
 }
 

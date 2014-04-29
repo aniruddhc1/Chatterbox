@@ -226,13 +226,19 @@ func (user *User) SendMessagesToUser() error{
 		args := &multipaxos.CommitReplyArgs{}
 		reply := &multipaxos.FileReply{}
 
-		errCall := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
+		errCall := conn.Call("PaxosServer.ServeMessageFile", args, reply)
 		if(errCall != nil){
 			fmt.Println(errCall)
 			return errCall
 		}
-		msgFile := reply.File
-		reader := bufio.NewReader(msgFile)
+
+		var file *os.File
+		errU := json.Unmarshal(reply.File, file)
+		if errU != nil {
+			fmt.Println("Couldn't unmarshall", errU)
+		}
+
+		reader := bufio.NewReader(file)
 
 		var err error
 		var line []byte
@@ -269,11 +275,10 @@ func loadPage(title string) (*Page, error) {
 
 
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
-
 	go func() {
 		fmt.Println("Sending Message in Chat Client", args.PaxosPort)
 		conn := PaxosServerConnections[args.PaxosPort]
-		errCall := conn.Call("PaxosServer.SendMessage", &args, &reply)
+		errCall := conn.Call("PaxosServer.SendMessage", args, reply)
 		fmt.Println(args.PaxosPort, errCall)
 	}()
 
@@ -281,15 +286,16 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 }
 
 func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
-	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
+	return ClientConn.Call("PaxosServer.GetServers", args, reply)
 }
 
 
 func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.FileReply) error{
+	fmt.Println("in getlogfile for port number ", args.Port)
 	conn := PaxosServerConnections[args.Port]
-	err := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
-
+	err := conn.Call("PaxosServer.ServeMessageFile", args, reply)
 	if(err != nil){
+		fmt.Println(err)
 		return err
 	}
 	return nil
