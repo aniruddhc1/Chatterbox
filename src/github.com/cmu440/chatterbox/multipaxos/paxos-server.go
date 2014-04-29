@@ -22,6 +22,7 @@ import (
 	"time"
 	"sync"
 	"io/ioutil"
+	"bufio"
 )
 
 type paxosServer struct {
@@ -55,7 +56,6 @@ type paxosServer struct {
 	wakeupChan chan bool
 
 }
-
 
 	var Active bool
 
@@ -219,17 +219,18 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return nil
 }
 
-
 func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	if(Active) {
 		fmt.Println("given the file")
 		fmt.Println(ps.CommittedMsgsFile.Name())
 		replyBytes, err := ioutil.ReadFile(ps.CommittedMsgsFile.Name())
+
 		if(err != nil){
 			return err
 		}
 		reply.File = replyBytes
 		fmt.Println("in serve message file ***** ", replyBytes)
+
 		if err != nil{
 			fmt.Println(err)
 			return err

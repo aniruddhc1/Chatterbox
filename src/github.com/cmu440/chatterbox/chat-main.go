@@ -19,7 +19,6 @@ func main() {
 	startChat := flag.Bool("startChat", false, "start test cases once all servers have been registered")
 	flag.Parse()
 
-
 	if *startChat {
 		time.Sleep(time.Second *3)
 		fmt.Println(*port)
