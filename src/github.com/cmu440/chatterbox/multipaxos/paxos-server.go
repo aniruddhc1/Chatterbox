@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 	"sync"
-	"os/exec"
+	"io/ioutil"
 )
 
 type paxosServer struct {
@@ -51,9 +51,11 @@ type paxosServer struct {
 	CommittedMsgsFile *os.File
 
 	RegisterLock *sync.Mutex
-	chanListener chan int
+
+	wakeupChan chan bool
 
 }
+
 
 	var Active bool
 
@@ -94,7 +96,8 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 		CommittedMsgsFile: file,
 
 		RegisterLock: &sync.Mutex{},
-		chanListener : make(chan int),
+
+		wakeupChan : make(chan bool),
 	}
 
 	Active = true // set to false if need to block all the rpc functions
@@ -197,7 +200,6 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 			}
 		}
 
-
 		if !alreadyJoined {
 			fmt.Println("IN REGISTER", ps.NumConnected, args.Port)
 			ps.Servers[ps.NumConnected] = args.Port
@@ -217,18 +219,21 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 	return nil
 }
 
-type FileReply struct{
-	File *os.File
-}
-
-type FileArgs struct{
-	Port int
-}
 
 func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 	if(Active) {
-		fmt.Println("Sending the file back to the client!")
-		reply.File = ps.CommittedMsgsFile
+		fmt.Println("given the file")
+		fmt.Println(ps.CommittedMsgsFile.Name())
+		replyBytes, err := ioutil.ReadFile(ps.CommittedMsgsFile.Name())
+		if(err != nil){
+			return err
+		}
+		reply.File = replyBytes
+		fmt.Println("in serve message file ***** ", replyBytes)
+		if err != nil{
+			fmt.Println(err)
+			return err
+		}
 	}
 	return nil
 }
@@ -242,48 +247,43 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 	return nil
 }
 
+
+
+func (ps *paxosServer) WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error{
+	ps.wakeupChan <- true
+	return nil
+}
+
 //Functions related to Testing
 func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) error {
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
-	fmt.Println("In Check Kill", ps.Port)
+	fmt.Println("In Check Kill", ps.Port, "stage", currStage, "time", currTime)
 	var err error
 	if tester.Stage == currStage && tester.Time == currTime {
+		fmt.Println("got into if statement in check kill")
 		if tester.Kill {
-			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time,"Stopping at", currStage, currTime)
+			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time, "Stopping at", currStage, currTime)
+			Active = false
+			t := time.NewTimer(60 * time.Second)
+			select{
+			case <- t.C:
+				Active = true
+				//do nothing
+			case <- ps.wakeupChan:
+				Active = true
+				t.Stop()
+			}
 		} else {
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
-		}
-
-//		err := (*ps.listener).Close()
-//		if err != nil {
-//			fmt.Println("Couldn't close listener")
-//			return errors.New("couldn't close listener")
-//		}
-//
-//		for _, conn := range ps.RPCConnections {
-//			err = conn.Close()
-//			if(err != nil){
-//				fmt.Println("Couldn't close connection")
-//				return err
-//			}
-//		}
-
-		if !tester.Kill{
 			Active = false
-			cmd := exec.Command("sleep", "5")
-			err = cmd.Start()
-			if err != nil {
-				fmt.Println("Couldnt do the exec sleep thign :'(")
-			}
-			time.Sleep(time.Second*time.Duration(tester.SleepTime))
+			time.Sleep(time.Second * time.Duration(tester.SleepTime))
 			Active = true
 			fmt.Println("STARTING AGAIN", ps.Port)
 			ps.CreatePaxosConnections()
 		}
 	}
-
 	return err
 }
 
@@ -525,7 +525,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 		}
 	}
 	ps.CheckKill(tester, "sendCommit", "end")
-
+	fmt.Println("end of send commit ")
 	return nil
 }
 

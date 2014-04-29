@@ -1,6 +1,5 @@
-package chatterbox
+package main
 
-/*
 import (
 	"fmt"
 	"errors"
@@ -12,14 +11,12 @@ import (
 	"bufio"
 	"io/ioutil"
 	"bytes"
+	"os"
 )
-*/
 
 /*
  * testing if GetServers returns the correct number of the servers once all have joined
  */
-
-/*
 func TestGetServers(cclient *chatclient.ChatClient) error{
 	args := &multipaxos.GetServersArgs{}
 	reply := &multipaxos.GetServersReply{}
@@ -42,15 +39,13 @@ func TestGetServers(cclient *chatclient.ChatClient) error{
 	}
 	fmt.Println("PASS GetServers()")
 	return nil
-}*/
+}
 
 /*
  * Check that after the proposer sends a propose request the acceptor replies OK
  * if it hasn't seen anything before. Does one iteration of paxos without any
  * failure of nodes
  */
-
-/*
 func testBasic1(cclient *chatclient.ChatClient) error{
 	fmt.Println("starting testbasic1")
 	msg := chatclient.ChatMessage{"Soumya", "testRoom", "TESTING", time.Now()}
@@ -77,7 +72,7 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 		return err
 	}
 	return nil
-}*/
+}
 
 
 
@@ -86,8 +81,6 @@ func testBasic1(cclient *chatclient.ChatClient) error{
  * accept messages. Test that it commits the right message (the first one should be
  * commited)
  */
-
-/*
 func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	fmt.Println("starting testbasic2")
 
@@ -129,19 +122,32 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	}
 	fileReply1 := &multipaxos.FileReply{}
 
-	cClient1.GetLogFile(fileArgs, fileReply1)
+	errLog1 := cClient1.GetLogFile(fileArgs, fileReply1)
+	if(errLog1 != nil){
+		return errLog1
+	}
 
 	err := cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
 
 	fileReply2 := &multipaxos.FileReply{}
 	cClient1.GetLogFile(fileArgs, fileReply2)
 
-	replyBytes1, err := ioutil.ReadAll(bufio.NewReader(fileReply1.File))
+	var fileU1 *os.File
+	var fileU2 *os.File
+	errU1 := json.Unmarshal(fileReply1.File, fileU1)
+	errU2 := json.Unmarshal(fileReply2.File, fileU2)
+	if(errU1 != nil || errU2 != nil ||
+			(len(fileReply1.File) == 0) || (len(fileReply2.File) == 0) ){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshal")
+	}
+
+	replyBytes1, err := ioutil.ReadAll(bufio.NewReader(fileU1))
 	if(err != nil){
 		return err
 	}
 
-	replyBytes2, err2 := ioutil.ReadAll(bufio.NewReader(fileReply2.File))
+	replyBytes2, err2 := ioutil.ReadAll(bufio.NewReader(fileU2))
 	if(err2 != nil){
 		return err2
 	}
@@ -163,7 +169,15 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 
 	fileReply3 := &multipaxos.FileReply{}
 	cClient1.GetLogFile(fileArgs, fileReply3)
-	replyBytes3, err3 := ioutil.ReadAll(bufio.NewReader(fileReply3.File))
+
+	var fileU3 *os.File
+	errU3 := json.Unmarshal(fileReply1.File, fileU1)
+	if(errU3 != nil || len(fileReply1.File) == 0){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshal")
+	}
+
+	replyBytes3, err3 := ioutil.ReadAll(bufio.NewReader(fileU3))
 
 	if(err3 != nil){
 		return err3
@@ -175,7 +189,13 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 		var line3 string
 		var err3 error
 		for {
-			line3, err3 = bufio.NewReader(fileReply3.File).ReadString('\n')
+			var fileU4 *os.File
+			errU1 := json.Unmarshal(fileReply1.File, fileU4)
+			if(errU1 != nil || len(fileReply1.File) == 0){
+				fmt.Println("error in unmarshal")
+				return errors.New("error in unmarshal")
+			}
+			line3, err3 = bufio.NewReader(fileU4).ReadString('\n')
 			if err3 != nil {
 				break
 			}
@@ -191,10 +211,12 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	//then make sure that after second send message that msg1 is in file not msg2!
 
 	return nil
-}*/
+}
 
 
 /*
+ *
+ */
 func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int) error {
 	msg1 := chatclient.ChatMessage{"Srini", "testRoom", "lololollol :D", time.Now()}
 	bytes1, marshalErr := json.Marshal(msg1)
@@ -243,7 +265,7 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 		},
 		PaxosPort: port3}
 
-	go cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+	cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
 
 	time.Sleep(time.Second)
 	fmt.Println("SENDING SECOND MESSAGEEEEEE")
@@ -268,9 +290,527 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 	//sending args 3
 
 	return nil
-}*/
+}
 
-/*
+func testBasic4(cclient *chatclient.ChatClient, port1, port2, port3, port4, port5 int) error {
+	msg1 := chatclient.ChatMessage{"alockwoo", "awesome", "poopmaster", time.Now()}
+	msg2 := chatclient.ChatMessage{"achaturv", "awesome", "golang ", time.Now()}
+	msg3 := chatclient.ChatMessage{"skethu", "awesome", "i'm too cool", time.Now()}
+	msg4 := chatclient.ChatMessage{"cgarrod", "awesome", "i love webapps!", time.Now()}
+
+
+	bytes1, err1 := json.Marshal(msg1)
+	bytes2, err2 := json.Marshal(msg2)
+	bytes3, err3 := json.Marshal(msg3)
+	bytes4, err4 := json.Marshal(msg4)
+
+	if (err1 != nil || err2 != nil || err3 != nil || err4 != nil) {
+		return errors.New("error occurred while marshaling")
+	}
+
+	argsKill := &multipaxos.SendMessageArgs{
+		Value : make([]byte, 1),
+		Tester : multipaxos.Tester{
+			Stage : "sendPropose",
+			Time : "start",
+			Kill : true,
+			SleepTime : 0,
+		},
+		PaxosPort : port5,
+	}
+
+	er := cclient.SendMessage(argsKill, &multipaxos.SendMessageReplyArgs{})
+	if(er != nil){
+		fmt.Println(er)
+		return er
+	}
+
+	args1 := &multipaxos.SendMessageArgs{
+		Value : bytes1,
+		Tester : multipaxos.Tester{
+			Stage : "" ,
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port2,
+	}
+
+	errSend1 := cclient.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+	if(errSend1 != nil){
+		fmt.Println(errSend1)
+		return errSend1
+	}
+
+	time.Sleep(time.Second * 2)
+
+	fmt.Println("checking logs now for round 1")
+
+	//see that logs for 1,2,3,4 have a line in them
+
+	file1 := &multipaxos.FileReply{}
+	file2 := &multipaxos.FileReply{}
+	file3 := &multipaxos.FileReply{}
+	file4 := &multipaxos.FileReply{}
+	file5 := &multipaxos.FileReply{}
+
+	errLogR1 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port1, }, file1)
+	errLogR2 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port2, }, file2)
+	errLogR3 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port3, }, file3)
+	errLogR4 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port4, }, file4)
+	errLogR5 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port5, }, file5)
+
+	if (errLogR1 != nil || errLogR2 != nil || errLogR3 != nil ||
+		errLogR4 != nil || errLogR5 != nil) {
+		return errors.New("error occurred while getting the log file =| ")
+	}
+
+
+	fmt.Println("it got the files from all the servers! ")
+
+	var fileU1 *os.File
+	var fileU2 *os.File
+	var fileU3 *os.File
+	var fileU4 *os.File
+	var fileU5 *os.File
+
+	errU1 := json.Unmarshal(file1.File, fileU1)
+	errU2 := json.Unmarshal(file2.File, fileU2)
+	errU3 := json.Unmarshal(file3.File, fileU3)
+	errU4 := json.Unmarshal(file4.File, fileU4)
+	errU5 := json.Unmarshal(file5.File, fileU5)
+
+	if(errU1 != nil || errU2 != nil || errU3 != nil || errU4 != nil || errU5 != nil ||
+	(len(file1.File) == 0) || (len(file2.File) == 0)||
+	(len(file3.File) == 0) || (len(file4.File) == 0)||
+			(len(file5.File) == 0)){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshal")
+	}
+
+	replyBytes1, err1 := ioutil.ReadAll(bufio.NewReader(fileU1))
+	replyBytes2, err2 := ioutil.ReadAll(bufio.NewReader(fileU2))
+	replyBytes3, err3 := ioutil.ReadAll(bufio.NewReader(fileU3))
+	replyBytes4, err4 := ioutil.ReadAll(bufio.NewReader(fileU4))
+	replyBytes5, err5 := ioutil.ReadAll(bufio.NewReader(fileU5))
+
+	fmt.Println("tripadvisor")
+
+	if (err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil) {
+		return errors.New("error occurred while reading the log file =| ")
+	}
+
+	//check if message been committed to 1,2,3,4 and not to 5. fails upon violation of
+	//any of these
+	if (bytes.Compare(replyBytes1, replyBytes2) != 0) ||
+			(bytes.Compare(replyBytes2, replyBytes3) != 0) ||
+			(bytes.Compare(replyBytes3, replyBytes4) != 0) ||
+			(bytes.Compare(replyBytes4, replyBytes5) == 0) {
+		return errors.New("inconsistency between log files in the first pass")
+	}else{
+		fmt.Println("no inconsistencies found in round 1")
+	}
+
+	//delay for server 4 at the very beginning
+	argsDelay := &multipaxos.SendMessageArgs{
+		Value : make([]byte, 1),
+		Tester : multipaxos.Tester{
+			Stage : "sendPropose",
+			Time : "start",
+			Kill : false,
+			SleepTime : 4,
+		},
+		PaxosPort : port4,
+	}
+
+	er1 := cclient.SendMessage(argsDelay, &multipaxos.SendMessageReplyArgs{})
+
+	if er1 != nil{
+		fmt.Println(er1)
+		return er1
+	}
+
+	args2 := &multipaxos.SendMessageArgs{
+		Value : bytes2,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port1,
+	}
+
+	errSend2 := cclient.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+
+	if(errSend2 != nil){
+		fmt.Println(errSend2)
+		return errSend2
+	}
+
+	//compare logs, make sure that 1,2,3 are consistent
+
+	file1R2 := &multipaxos.FileReply{}
+	file2R2 := &multipaxos.FileReply{}
+	file3R2 := &multipaxos.FileReply{}
+	file4R2 := &multipaxos.FileReply{}
+	file5R2 := &multipaxos.FileReply{}
+
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port1, }, file1R2)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port2, }, file2R2)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port3, }, file3R2)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port4, }, file4R2)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port5, }, file5R2)
+
+
+	var fileRU1 *os.File
+	var fileRU2 *os.File
+	var fileRU3 *os.File
+	var fileRU4 *os.File
+	var fileRU5 *os.File
+
+	errRU1 := json.Unmarshal(file1R2.File, fileRU1)
+	errRU2 := json.Unmarshal(file2R2.File, fileRU2)
+	errRU3 := json.Unmarshal(file3R2.File, fileRU3)
+	errRU4 := json.Unmarshal(file4R2.File, fileRU4)
+	errRU5 := json.Unmarshal(file5R2.File, fileRU5)
+
+	if(errRU1 != nil || errRU2 != nil || errRU3 != nil ||
+		errRU4 != nil || errRU5 != nil ||
+			(len(file1R2.File) == 0) || (len(file2R2.File) == 0)||
+			(len(file3R2.File) == 0) || (len(file4R2.File) == 0)||
+			(len(file5R2.File) == 0)){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshal")
+	}
+
+	replyBytes1R2, err1R2 := ioutil.ReadAll(bufio.NewReader(fileRU1))
+	replyBytes2R2, err2R2 := ioutil.ReadAll(bufio.NewReader(fileRU2))
+	replyBytes3R2, err3R2 := ioutil.ReadAll(bufio.NewReader(fileRU3))
+	replyBytes4R2, err4R2 := ioutil.ReadAll(bufio.NewReader(fileRU4))
+	replyBytes5R2, err5R2 := ioutil.ReadAll(bufio.NewReader(fileRU5))
+
+	if (err1R2 != nil || err2R2 != nil || err3R2 != nil || err4R2 != nil || err5R2 != nil) {
+		return errors.New("error occurred while reading the log file =| ")
+	}
+
+	if (bytes.Compare(replyBytes1R2, replyBytes2R2) != 0) ||
+			(bytes.Compare(replyBytes2R2, replyBytes3R2) != 0) ||
+			(bytes.Compare(replyBytes3R2, replyBytes4R2) == 0) ||
+			(bytes.Compare(replyBytes4R2, replyBytes5R2) == 0) {
+		return errors.New("inconsistency between log files in the second round")
+	}
+
+	//wait till delay ends.. then make 4 send a proposal, send message.
+	//make sure that 1,2,3,4 is consistent
+
+	time.Sleep(time.Second * 4)
+
+	args3 := &multipaxos.SendMessageArgs{
+		Value : bytes3,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port2,
+	}
+
+	errSend3 := cclient.SendMessage(args3, &multipaxos.SendMessageReplyArgs{})
+
+	if(errSend3 != nil){
+		fmt.Println(errSend3)
+		return errSend3
+	}
+
+	file1R3 := &multipaxos.FileReply{}
+	file2R3 := &multipaxos.FileReply{}
+	file3R3 := &multipaxos.FileReply{}
+	file4R3 := &multipaxos.FileReply{}
+	file5R3 := &multipaxos.FileReply{}
+
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port1, }, file1R3)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port2, }, file2R3)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port3, }, file3R3)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port4, }, file4R3)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port5, }, file5R3)
+
+	var filerRU1 *os.File
+	var filerRU2 *os.File
+	var filerRU3 *os.File
+	var filerRU4 *os.File
+	var filerRU5 *os.File
+
+	errrRU1 := json.Unmarshal(file1R3.File, filerRU1)
+	errrRU2 := json.Unmarshal(file2R3.File, filerRU2)
+	errrRU3 := json.Unmarshal(file3R3.File, filerRU3)
+	errrRU4 := json.Unmarshal(file4R3.File, filerRU4)
+	errrRU5 := json.Unmarshal(file5R3.File, filerRU5)
+
+	if(errrRU1 != nil || errrRU2 != nil || errrRU3 != nil ||
+		errrRU4 != nil || errrRU5 != nil ||
+	(len(file1R3.File) == 0) || (len(file2R3.File) == 0)||
+			(len(file3R3.File) == 0) || (len(file4R3.File) == 0)||
+			(len(file5R3.File) == 0)){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshal")
+	}
+
+	replyBytes1R3, err1R3 := ioutil.ReadAll(bufio.NewReader(filerRU1))
+	replyBytes2R3, err2R3 := ioutil.ReadAll(bufio.NewReader(filerRU2))
+	replyBytes3R3, err3R3 := ioutil.ReadAll(bufio.NewReader(filerRU3))
+	replyBytes4R3, err4R3 := ioutil.ReadAll(bufio.NewReader(filerRU4))
+	replyBytes5R3, err5R3 := ioutil.ReadAll(bufio.NewReader(filerRU5))
+
+	if (err1R3 != nil || err2R3 != nil || err3R3 != nil ||
+		err4R3 != nil || err5R3 != nil) {
+		return errors.New("error occurred while reading the log file =| ")
+	}
+
+	if (bytes.Compare(replyBytes1R3, replyBytes2R3) != 0) ||
+			(bytes.Compare(replyBytes2R3, replyBytes3R3) != 0) ||
+			(bytes.Compare(replyBytes3R3, replyBytes4R3) != 0) ||
+			(bytes.Compare(replyBytes4R3, replyBytes5R3) == 0) {
+		return errors.New("inconsistency between log files in the third round")
+	}
+
+	//wake up server 5 from after being killed.
+
+
+	getServersReply := &multipaxos.GetServersReply{}
+	cclient.GetServers(&multipaxos.GetServersArgs{}, getServersReply)
+
+	conn := chatclient.PaxosServerConnections[port5]
+
+	conn.Call("PaxosServer.WakeupServer", &multipaxos.WakeupRequestArgs{}, &multipaxos.WakeupReplyArgs{})
+
+	//send a message from 5
+
+	args4 := &multipaxos.SendMessageArgs{
+		Value : bytes4,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port2,
+	}
+
+	//make sure that 1,2,3,4,5 logs are consistent
+
+	errSend4 := cclient.SendMessage(args4, &multipaxos.SendMessageReplyArgs{})
+
+	if(errSend4 != nil){
+		fmt.Println(errSend4)
+		return errSend4
+	}
+
+	file1R4 := &multipaxos.FileReply{}
+	file2R4 := &multipaxos.FileReply{}
+	file3R4 := &multipaxos.FileReply{}
+	file4R4 := &multipaxos.FileReply{}
+	file5R4 := &multipaxos.FileReply{}
+
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port1, }, file1R4)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port2, }, file2R4)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port3, }, file3R4)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port4, }, file4R4)
+	cclient.GetLogFile(&multipaxos.FileArgs{Port : port5, }, file5R4)
+
+	var file1R4a *os.File
+	var file2R4a *os.File
+	var file3R4a *os.File
+	var file4R4a *os.File
+	var file5R4a *os.File
+
+	errrRU1a := json.Unmarshal(file1R4.File, file1R4a)
+	errrRU2a := json.Unmarshal(file2R4.File, file2R4a)
+	errrRU3a := json.Unmarshal(file3R4.File, file3R4a)
+	errrRU4a := json.Unmarshal(file4R4.File, file4R4a)
+	errrRU5a := json.Unmarshal(file5R4.File, file5R4a)
+
+	if(errrRU1a != nil || errrRU2a != nil || errrRU3a != nil ||
+		errrRU4a != nil || errrRU5a != nil||
+			(len(file1R4.File) == 0) || (len(file2R4.File) == 0)||
+			(len(file3R4.File) == 0) || (len(file4R4.File) == 0)||
+			(len(file5R4.File) == 0)){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshal")
+	}
+
+	replyBytes1R4, err1R4 := ioutil.ReadAll(bufio.NewReader(file1R4a))
+	replyBytes2R4, err2R4 := ioutil.ReadAll(bufio.NewReader(file2R4a))
+	replyBytes3R4, err3R4 := ioutil.ReadAll(bufio.NewReader(file3R4a))
+	replyBytes4R4, err4R4 := ioutil.ReadAll(bufio.NewReader(file4R4a))
+	replyBytes5R4, err5R4 := ioutil.ReadAll(bufio.NewReader(file5R4a))
+
+	if (err1R4 != nil || err2R4 != nil || err3R4 != nil ||
+		err4R4 != nil || err5R4 != nil) {
+		return errors.New("error occurred while reading the log file =| ")
+	}
+
+	if (bytes.Compare(replyBytes1R4, replyBytes2R4) != 0) ||
+			(bytes.Compare(replyBytes2R4, replyBytes3R4) != 0) ||
+			(bytes.Compare(replyBytes3R4, replyBytes4R4) != 0) ||
+			(bytes.Compare(replyBytes4R4, replyBytes5R4) != 0) {
+		return errors.New("not all log files are consistent!")
+	}
+	fmt.Println("PASS TestBasic4()")
+	return nil
+}
+
+func testBasic5(cclient *chatclient.ChatClient, port1, port2, port3, port4, port5 int) error{
+	msg1 := chatclient.ChatMessage{"alockwoo", "awesome", "poopmaster", time.Now()}
+	msg2 := chatclient.ChatMessage{"achaturv", "awesome", "golang ", time.Now()}
+	msg3 := chatclient.ChatMessage{"skethu", "awesome", "i'm too cool", time.Now()}
+	msg4 := chatclient.ChatMessage{"cgarrod", "awesome", "i love webapps!", time.Now()}
+	msg5 := chatclient.ChatMessage{"rebecca", "awesome", "~~im a troll~~!", time.Now()}
+
+	bytes1, err1 := json.Marshal(msg1)
+	bytes2, err2 := json.Marshal(msg2)
+	bytes3, err3 := json.Marshal(msg3)
+	bytes4, err4 := json.Marshal(msg4)
+	bytes5, err5 := json.Marshal(msg5)
+
+	if (err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil) {
+		return errors.New("error occurred while marshaling")
+	}
+
+	args1 := &multipaxos.SendMessageArgs{
+		Value : bytes1,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port1,
+	}
+
+	args2 := &multipaxos.SendMessageArgs{
+		Value : bytes2,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port2,
+	}
+
+	args3 := &multipaxos.SendMessageArgs{
+		Value : bytes3,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port3,
+	}
+
+	args4 := &multipaxos.SendMessageArgs{
+		Value : bytes4,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port4,
+	}
+
+	args5 := &multipaxos.SendMessageArgs{
+		Value : bytes5,
+		Tester : multipaxos.Tester{
+			Stage : "",
+			Time : "",
+			Kill : false,
+			SleepTime : 0,
+		},
+		PaxosPort : port5,
+	}
+
+	err1S := cclient.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
+	err2S := cclient.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
+	err3S := cclient.SendMessage(args3, &multipaxos.SendMessageReplyArgs{})
+	err4S := cclient.SendMessage(args4, &multipaxos.SendMessageReplyArgs{})
+	err5S := cclient.SendMessage(args5, &multipaxos.SendMessageReplyArgs{})
+
+	if (err1S != nil || err2S != nil || err3S != nil ||
+		err4S != nil || err5S != nil) {
+		return errors.New("error occurred while sending message")
+	}
+
+	file1 := &multipaxos.FileReply{}
+	file2 := &multipaxos.FileReply{}
+	file3 := &multipaxos.FileReply{}
+	file4 := &multipaxos.FileReply{}
+	file5 := &multipaxos.FileReply{}
+
+	errLogR1 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port1, }, file1)
+	errLogR2 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port2, }, file2)
+	errLogR3 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port3, }, file3)
+	errLogR4 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port4, }, file4)
+	errLogR5 := cclient.GetLogFile(&multipaxos.FileArgs{Port : port5, }, file5)
+
+	if (errLogR1 != nil || errLogR2 != nil || errLogR3 != nil ||
+		errLogR4 != nil || errLogR5 != nil) {
+		return errors.New("error occurred while getting the log file =| ")
+	}
+
+	fmt.Println("it got the files from all the servers! ")
+
+	var fileUn1 *os.File
+	var fileUn2 *os.File
+	var fileUn3 *os.File
+	var fileUn4 *os.File
+	var fileUn5 *os.File
+
+	errU1 := json.Unmarshal(file1.File, fileUn1)
+	errU2 := json.Unmarshal(file2.File, fileUn2)
+	errU3 := json.Unmarshal(file3.File, fileUn3)
+	errU4 := json.Unmarshal(file4.File, fileUn4)
+	errU5 := json.Unmarshal(file5.File, fileUn5)
+
+	if(errU1 != nil || errU2 != nil || errU3 != nil ||
+	errU4 != nil || errU5 != nil&&
+	(len(file1.File) == 0) || (len(file2.File) == 0)||
+	(len(file3.File) == 0) || (len(file4.File) == 0)||
+	(len(file5.File) == 0)){
+		fmt.Println("error in unmarshal")
+		return errors.New("error in unmarshaling round 1")
+	}
+
+	replyBytes1, err1 := ioutil.ReadAll(bufio.NewReader(fileUn1))
+	replyBytes2, err2 := ioutil.ReadAll(bufio.NewReader(fileUn2))
+	replyBytes3, err3 := ioutil.ReadAll(bufio.NewReader(fileUn3))
+	replyBytes4, err4 := ioutil.ReadAll(bufio.NewReader(fileUn4))
+	replyBytes5, err5 := ioutil.ReadAll(bufio.NewReader(fileUn5))
+
+	fmt.Println("tripadvisor")
+
+	if (err1 != nil || err2 != nil || err3 != nil || err4 != nil || err5 != nil) {
+		return errors.New("error occurred while reading the log file =| ")
+	}
+
+	//check if message been committed to 1,2,3,4 and not to 5. fails upon violation of
+	//any of these
+	if (bytes.Compare(replyBytes1, replyBytes2) != 0) ||
+			(bytes.Compare(replyBytes2, replyBytes3) != 0) ||
+			(bytes.Compare(replyBytes3, replyBytes4) != 0) ||
+			(bytes.Compare(replyBytes4, replyBytes5) == 0) {
+		return errors.New("inconsistency between log files in the first pass")
+	}else{
+		fmt.Println("no inconsistencies found in round 1")
+		return nil
+	}
+	fmt.Println("pass test basic 5")
+	return nil
+}
+
 func main(){
 	isMaster := flag.Bool("isMaster", false, "to check if its a master server or not ")
 	registerAll := flag.Bool("registerAll", false, "start test cases once all servers have been registered")
@@ -287,23 +827,30 @@ func main(){
 		fmt.Println("STARTTING A NEW CHAT CLIENT")
 		cClient, _ := chatclient.NewChatClient("2000", 8080)
 
-		fmt.Println("TEST GET_SERVERS")
-		err := TestGetServers(cClient)
-		fmt.Println(err)
+//		fmt.Println("TEST GET_SERVERS")
+//		err := TestGetServers(cClient)
+//		fmt.Println(err)
+
+//		fmt.Println("TEST_BASIC_1")
+//		err1 := testBasic1(cClient)
+//		fmt.Println(err1)
+
+//		fmt.Println("TEST_BASIC_2")
+//		err2 := testBasic2(cClient, 8080, 9990)
+//		fmt.Println(err2)
 
 
-		fmt.Println("TEST_BASIC_1")
-		err1 := testBasic1(cClient)
-		fmt.Println(err1)
+//		fmt.Println("TEST_BASIC_3")
+//		err3 := testBasic3(cClient, 8080, 9990, 8081)
+//		fmt.Println(err3)
 
-		fmt.Println("TEST_BASIC_2")
-		err2 := testBasic2(cClient, 8080, 9990)
-		fmt.Println(err2)
+//		fmt.Println("TEST_BASIC_4")
+//		err4 := testBasic4(cClient, 8080, 9990, 8081, 8082, 8083)
+//		fmt.Println(err4)
 
-
-		fmt.Println("TEST_BASIC_3")
-		err3 := testBasic3(cClient, 8080, 9990, 8081)
-		fmt.Println(err3)
+		fmt.Println("TEST_BASIC_5")
+		err4 := testBasic5(cClient, 8080, 9990, 8081, 8082, 8083)
+		fmt.Println(err4)
 
 
 	} else if (*isMaster){
@@ -323,4 +870,3 @@ func main(){
 		select{}
 	}
 }
-*/

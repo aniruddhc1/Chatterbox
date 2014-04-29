@@ -273,7 +273,7 @@ func (user *User) SendMessagesToUser() error{
 		}*/
 
 
-		time.Sleep(time.Second*1)
+		time.Sleep(time.Second*10)
 		fmt.Println("Trying to get log files")
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
@@ -287,8 +287,14 @@ func (user *User) SendMessagesToUser() error{
 			fmt.Println(errCall)
 			return errCall
 		}
-		msgFile := reply.File
-		reader := bufio.NewReader(msgFile)
+
+		f, err1 := ioutil.TempFile("", "coolz")
+		if err1 != nil {
+			fmt.Println("Can't create a temp file :(")
+			continue
+		}
+		f.Write(reply.File)
+		reader := bufio.NewReader(f)
 
 		var err error
 		var line []byte
@@ -327,10 +333,10 @@ func loadPage(title string) (*Page, error) {
 
 
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
-
 	go func() {
 		fmt.Println("Sending Message in Chat Client", args.PaxosPort)
 		conn := PaxosServerConnections[args.PaxosPort]
+
 		errCall := conn.Call("PaxosServer.SendMessage", &args, &reply)
 		if errCall != nil {
 			fmt.Println(args.PaxosPort, errCall)
@@ -340,22 +346,22 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 			fmt.Println("Successfully commited message", args.PaxosPort)
 		}
 
-
 	}()
 
 	return nil
 }
 
 func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
-	return ClientConn.Call("PaxosServer.GetServers", &args, &reply)
+	return ClientConn.Call("PaxosServer.GetServers", args, reply)
 }
 
 
 func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.FileReply) error{
+	fmt.Println("in getlogfile for port number ", args.Port)
 	conn := PaxosServerConnections[args.Port]
-	err := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
-
+	err := conn.Call("PaxosServer.ServeMessageFile", args, reply)
 	if(err != nil){
+		fmt.Println(err)
 		return err
 	}
 	return nil

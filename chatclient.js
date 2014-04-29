@@ -45,6 +45,7 @@ function NewUser() {
 
         connection.onmessage = function(e){
            var server_message = e.data;
+           alert(server_message)
            console.log(server_message);
         }
 
