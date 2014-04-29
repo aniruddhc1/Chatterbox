@@ -15,6 +15,8 @@ import (
 	"math/rand"
 	"bufio"
 	"io/ioutil"
+	"html/template"
+	"os"
 )
 
 type User struct{
@@ -106,15 +108,69 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 		}
 	}
 
-	fmt.Println("HEREEE")
-//	http.Handle("/", http.FileServer(http.Dir(".")))
+	//http.Handle("/", http.FileServer(http.Dir(".")))
 	http.HandleFunc("/", startPageHandler)
-	http.HandleFunc("/chat", chatPageHandler)
-	fmt.Println("HEREEEEEEEE")
+	http.HandleFunc("/css/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Println(r.URL.Path[5:])
+			f, err := os.Open(r.URL.Path[5:])
+
+			if err != nil {
+				fmt.Println("blabjalh", err)
+			}
+
+			http.ServeContent(w, r, ".css", time.Now(), f)
+		})
+	http.HandleFunc("/js/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Println(r.URL.Path[4:])
+			f, err := os.Open(r.URL.Path[4:])
+
+			if err != nil {
+				fmt.Println("alkdjfalkfd", err)
+			}
+
+			http.ServeContent(w, r, ".js", time.Now(), f)
+		})
+	http.HandleFunc("/images/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Println(r.URL.Path[8:])
+			f, err := os.Open(r.URL.Path[8:])
+
+			if err != nil {
+				fmt.Println("alkdjfalkfd", err)
+			}
+
+			http.ServeContent(w, r, ".jpg", time.Now(), f)
+		})
+	http.HandleFunc("/chat/", chatHandler)
 
 	fmt.Println("Finished Creating New Chat Client")
 	return chatclient, nil
 }
+
+func chatHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("in index.html handler")
+	t, _ := template.ParseFiles("index.html")
+	if t == nil {
+		fmt.Println("why is t nil?")
+	}
+	if w == nil {
+		fmt.Println("why is w nil?")
+	}
+
+	t.Execute(w, nil)
+}
+
+func startPageHandler(w http.ResponseWriter, r *http.Request){
+	fmt.Println("in start page handler")
+	t, _ := template.ParseFiles("startPage.html")
+	if t == nil {
+		fmt.Println("why is t nil?")
+	}
+	if w == nil {
+		fmt.Println("why is w nil?")
+	}
+	t.Execute(w, nil)
+}
+
 
 func (cc *ChatClient) GetRooms() error {
 	//TODO for testing
@@ -211,16 +267,6 @@ func loadPage(title string) (*Page, error) {
 	}, nil
 }
 
-func chatPageHandler(w http.ResponseWriter, r *http.Request){
-	p, _ := loadPage("index.html")
-
-	fmt.Fprintf(w, "%s \n %s", p.Title, p.Body)
-}
-
-func startPageHandler(w http.ResponseWriter, r *http.Request){
-	p, _ := loadPage("startPage.html")
-	fmt.Fprintf(w, "%s \n %s", p.Title, p.Body)
-}
 
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
 
