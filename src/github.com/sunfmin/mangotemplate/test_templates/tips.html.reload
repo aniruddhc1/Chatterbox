@@ -1,8 +1,0 @@
-{{define "tips/notification1"}}
-  reload notification 1
-{{end}}
-
-
-{{define "tips/notification2"}}
-  reload notification 2
-{{end}}

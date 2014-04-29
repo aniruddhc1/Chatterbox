@@ -11,18 +11,80 @@
         <!-- Bootstrap -->
         <link href="css/bootstrap.min.css" rel="stylesheet">
         <link href="css/chatclient.css" rel="stylesheet">
+
+
+        <script>
+
+
+
+        </script>
+
     </head>
 
 	<body style="background-image:url(images/bubbleBlur2.jpg);"> 
-		<div id="startPage">
-			<div id="container">
-				<h7> Welcome to Chatterbox! </h7> 
-				<form target="/join">
-	                 <input type="text" class="userNameBox" id="userNameTextBox" placeholder="John Doe">
-	                 <button type="submit" class="enterChatBox" onclick="NewUser()"> Enter </button>
-	            </form> 
-            <div>
-		</div>
- 	</body>  
 
+        <div id="startPage">
+			<div id="container">
+				<h7> Welcome to Chatterbox! </h7>
+                <form method="post">
+	                 <input type="text" class="userNameBox" id="userNameTextBox" placeholder="John Doe">
+	                 <button type="button" onclick = "NewUser()" class="enterChatBox"> Enter </button>
+	            </form> 
+            </div>
+		</div>
+
+        <div id="mainPage" style="display:none;">
+
+            <div class="bs-component">
+                <div class="navbar navbar-default">
+                    <div class="navbar-header">
+                        <a class="navbar-brand" href="#">Chatterbox</a>
+                    </div>
+
+                    <div class="navbar-collapse collapse navbar-responsive-collapse">
+
+                        <form class="navbar-form navbar-left">
+                            <ul class="nav navbar-nav">
+                                <li class="chatLi">
+                                    <button type="button" class="btn btn-default btn-sm" onclick="JoinRoom()"> Join A New Room </button>
+                                </li>
+                                <li class="roomLi">
+                                    <input type="text" id="roomName" class="form-control input-sm" placeholder="Room Name">
+                                </li>
+                            </ul>
+                        </form>
+
+                    </div>
+                </div>
+            </div>
+
+            <div id="chatbox">
+                <div class="bs-component" id="MainDiv">
+                    <ul class="nav nav-tabs" style="margin-bottom: 15px;" id="RoomPanel">
+                        <li class="active"><a href="#home" data-toggle="tab">Home</a></li>
+                        <li><a href="#profile" data-toggle="tab">Profile</a></li>
+                    </ul>
+                </div>
+
+                <div id="messages">
+                </div>
+            </div>
+
+            <div id="sendMessage">
+                <form id="send">
+                    <ul class="nav navbar-nav">
+                        <li class="sendLi">
+                            <input type="text" id="message" class="form-control" placeholder="">
+                        </li>
+                        <li>
+                            <button type="button" class="btn btn-default" onclick="SendMessage()"> Send </button>
+                        </li>
+                    </ul>
+                </form>
+            </div>
+        </div>
+
+
+
+ 	</body>
 </html> 

@@ -94,6 +94,7 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 
 	//TODO do the weird waiting thing, for now assume that it is done
 	PaxosServers = getServerReply.Servers
+	fmt.Println("Set the Paxos Servers", len(PaxosServers))
 
 	for i := 0; i < len(PaxosServers); i++ {
 		fmt.Println("Adding rpc connections for", PaxosServers[i])
@@ -109,7 +110,6 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 	}
 
 	//http.Handle("/", http.FileServer(http.Dir(".")))
-	http.HandleFunc("/", startPageHandler)
 	http.HandleFunc("/css/", func(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(r.URL.Path[5:])
 			f, err := os.Open(r.URL.Path[5:])
@@ -140,7 +140,10 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 
 			http.ServeContent(w, r, ".jpg", time.Now(), f)
 		})
+
+	http.HandleFunc("/", startPageHandler)
 	http.HandleFunc("/chat/", chatHandler)
+	http.Handle("/join", websocket.Handler(NewUser))
 
 	fmt.Println("Finished Creating New Chat Client")
 	return chatclient, nil
@@ -148,6 +151,23 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 
 func chatHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("in index.html handler")
+	fmt.Println(r.Method)
+	if r.Method == "GET" {
+		fmt.Println("method was get")
+		err := r.ParseForm()
+		fmt.Println(r.URL)
+
+		if err != nil {
+			fmt.Println("couldn't parse form", err)
+		}
+
+		fmt.Println(r.Form)
+	}
+
+
+	fmt.Println(r.Form)
+	fmt.Println("Username in chat handler", r.PostForm, r.RequestURI)
+
 	t, _ := template.ParseFiles("index.html")
 	if t == nil {
 		fmt.Println("why is t nil?")
@@ -172,20 +192,12 @@ func startPageHandler(w http.ResponseWriter, r *http.Request){
 }
 
 
-func (cc *ChatClient) GetRooms() error {
-	//TODO for testing
-	return errors.New("Unimplemented")
-}
-
-func (cc *ChatClient) GetUsers() error {
-	//TODO for testing
-	return errors.New("Unimplemented")
-}
 
 //TODO called by the http.Handler when we set up the rendering stuff
-func (cc *ChatClient) NewUser(ws *websocket.Conn) {
+func NewUser(ws *websocket.Conn) {
 	fmt.Println("Creating New User")
 	username := ws.Request().URL.Query().Get("username")
+	fmt.Println("Username is", username)
 
 	if username == "" {
 		err := errors.New("invalid input for user")
@@ -195,6 +207,7 @@ func (cc *ChatClient) NewUser(ws *websocket.Conn) {
 		return
 	}
 
+	fmt.Println("HERE")
 	joiningUser := &User{
 		Connection : ws,
 		Name : username,
@@ -204,21 +217,48 @@ func (cc *ChatClient) NewUser(ws *websocket.Conn) {
 
 	Users[username] = joiningUser
 
-	//go joiningUser.GetInfoFromUser(ws)
-	//go joiningUser.SendMessagesToUser()
+	bytes, _ := json.Marshal("HI")
+	fmt.Println("Writing a message")
+	ws.Write(bytes)
+
+	go joiningUser.GetInfoFromUser(ws)
+	joiningUser.SendMessagesToUser()
 
 }
 
 func (user *User) GetInfoFromUser (ws *websocket.Conn) {
+	fmt.Println("Inside GETINFOFROMUSER")
 	for {
 		//TODO RECEIVE messages from user and if the message is to join a new room update stats
 		//else if its  a message call SendMessage
+		var content string
+		err := websocket.Message.Receive(user.Connection, &content)
+		fmt.Println("Received a message", content)
 
+		if err != nil {
+			fmt.Println("err while receiving a message!", err)
+			continue
+		}
+
+		var room string // parse content to get room
+		var msgContent string //get the actual message
+
+		msg := ChatMessage {
+			User: user.Name,
+			Room:  room,
+			Content: msgContent,
+			Timestamp:  time.Now(),
+		}
+
+		msgString, err := msg.ToString()
+		fmt.Println(msgString)
+		//TODO  //DO the paxos thing and go from there
 
 	}
 }
 
 func (user *User) SendMessagesToUser() error{
+	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
 		time.Sleep(time.Second*2)
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
@@ -293,4 +333,14 @@ func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.Fi
 		return err
 	}
 	return nil
+}
+
+func (cc *ChatClient) GetRooms() error {
+	//TODO for testing
+	return errors.New("Unimplemented")
+}
+
+func (cc *ChatClient) GetUsers() error {
+	//TODO for testing
+	return errors.New("Unimplemented")
 }
