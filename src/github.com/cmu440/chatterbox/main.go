@@ -692,13 +692,13 @@ func main(){
 //		err3 := testBasic3(cClient, 8080, 9990, 8081)
 //		fmt.Println(err3)
 
-//		fmt.Println("TEST_BASIC_4")
-//		err4 := testBasic4(cClient, 8080, 9990, 8081, 8082, 8083)
-//		fmt.Println(err4)
-
-		fmt.Println("TEST_BASIC_5")
-		err4 := testBasic5(cClient, 8080, 9990, 8081, 8082, 8083)
+		fmt.Println("TEST_BASIC_4")
+		err4 := testBasic4(cClient, 8080, 9990, 8081, 8082, 8083)
 		fmt.Println(err4)
+
+//		fmt.Println("TEST_BASIC_5")
+//		err4 := testBasic5(cClient, 8080, 9990, 8081, 8082, 8083)
+//		fmt.Println(err4)
 
 
 	} else if (*isMaster){
