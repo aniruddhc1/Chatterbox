@@ -247,8 +247,6 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 	return nil
 }
 
-
-
 func (ps *paxosServer) WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error{
 	fmt.Println("Wakingup server", ps.Port)
 	ps.wakeupChan <- true

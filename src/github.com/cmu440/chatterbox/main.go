@@ -8,10 +8,7 @@ import (
 	"github.com/cmu440/chatterbox/chatclient"
 	"encoding/json"
 	"github.com/cmu440/chatterbox/multipaxos"
-	"bufio"
-	"io/ioutil"
 	"bytes"
-	"os"
 )
 
 /*
@@ -71,6 +68,7 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 	if err != nil {
 		return err
 	}
+	fmt.Println("pass test basic 1")
 	return nil
 }
 
@@ -96,8 +94,6 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 		return errors.New("error occurred while marshaling msg2 in testBasic2")
 	}
 
-
-
 	args1 := &multipaxos.SendMessageArgs{Value : bytes1,
 										Tester : multipaxos.Tester{
 											Stage : "sendAccept",
@@ -106,6 +102,7 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 											SleepTime : 0,
 										},
 										PaxosPort : port1}
+
 	args2 := &multipaxos.SendMessageArgs{Value : bytes2,
 										Tester : multipaxos.Tester{
 											Stage : "",
@@ -115,100 +112,72 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 										},
 										PaxosPort : port2}
 
-	//look at file before
 
-	fileArgs := &multipaxos.FileArgs{
-		Port : port1,
-	}
-	fileReply1 := &multipaxos.FileReply{}
-
-	errLog1 := cClient1.GetLogFile(fileArgs, fileReply1)
-	if(errLog1 != nil){
-		return errLog1
-	}
-
+	//send the first message, the proposer will die before it sends a commit message
 	err := cClient1.SendMessage(args1, &multipaxos.SendMessageReplyArgs{})
 
+	if(err != nil){
+		return err
+	}
+
+	time.Sleep(time.Second)
+
+	fileArgs1 := &multipaxos.FileArgs{Port : port1,}
+	fileReply1 := &multipaxos.FileReply{}
+	errLog1 := cClient1.GetLogFile(fileArgs1, fileReply1)
+
+	fileArgs2 := &multipaxos.FileArgs{Port : port2,}
 	fileReply2 := &multipaxos.FileReply{}
-	cClient1.GetLogFile(fileArgs, fileReply2)
+	errLog2 := cClient1.GetLogFile(fileArgs2, fileReply2)
 
-	var fileU1 *os.File
-	var fileU2 *os.File
-	errU1 := json.Unmarshal(fileReply1.File, fileU1)
-	errU2 := json.Unmarshal(fileReply2.File, fileU2)
-	if(errU1 != nil || errU2 != nil ||
-			(len(fileReply1.File) == 0) || (len(fileReply2.File) == 0) ){
-		fmt.Println("error in unmarshal")
-		return errors.New("error in unmarshal")
+	if(errLog2 != nil || errLog1 != nil){
+		fmt.Println(errLog1, errLog2)
+		return errors.New("error occurred while getting the log file")
 	}
 
-	replyBytes1, err := ioutil.ReadAll(bufio.NewReader(fileU1))
-	if(err != nil){
-		return err
+	if len(fileReply1.File) != 0 || len(fileReply2.File) != 0 {
+		return errors.New("Something got commited even though the proposer failed to send commit messages")
 	}
 
-	replyBytes2, err2 := ioutil.ReadAll(bufio.NewReader(fileU2))
-	if(err2 != nil){
-		return err2
-	}
-
-	if(bytes.Compare(replyBytes1, replyBytes2) != 0){
-		return errors.New("commit went through in spite of killing the server after sendAccept phase")
-	}
-
-	//look at file after and do a diff
-
-	if(err != nil){
-		return err
-	}
-
+	//Sending a second message from a different proposer
 	error2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
 	if(error2 != nil){
 		return error2
 	}
 
-	fileReply3 := &multipaxos.FileReply{}
-	cClient1.GetLogFile(fileArgs, fileReply3)
+	time.Sleep(time.Second*2)
 
-	var fileU3 *os.File
-	errU3 := json.Unmarshal(fileReply1.File, fileU1)
-	if(errU3 != nil || len(fileReply1.File) == 0){
-		fmt.Println("error in unmarshal")
-		return errors.New("error in unmarshal")
+	//Check logs again
+	fileReplyFailedProposer := &multipaxos.FileReply{}
+	fileReplyThisProposer := &multipaxos.FileReply{}
+	errLog1 = cClient1.GetLogFile(fileArgs1, fileReplyFailedProposer)
+	errLog2 = cClient1.GetLogFile(fileArgs2, fileReplyThisProposer)
+
+	if(errLog2 != nil || errLog1 != nil){
+		fmt.Println(errLog1, errLog2)
+		return errors.New("error occurred while getting the log file")
 	}
 
-	replyBytes3, err3 := ioutil.ReadAll(bufio.NewReader(fileU3))
-
-	if(err3 != nil){
-		return err3
+	if len(fileReplyFailedProposer.File) != 0 {
+		return errors.New("The failed proposer should not have commited anything")
 	}
 
-	if(bytes.Compare(replyBytes2, replyBytes3) == 0){
-		return errors.New("nothing added to the log file!!")
-	} else{
-		var line3 string
-		var err3 error
-		for {
-			var fileU4 *os.File
-			errU1 := json.Unmarshal(fileReply1.File, fileU4)
-			if(errU1 != nil || len(fileReply1.File) == 0){
-				fmt.Println("error in unmarshal")
-				return errors.New("error in unmarshal")
-			}
-			line3, err3 = bufio.NewReader(fileU4).ReadString('\n')
-			if err3 != nil {
-				break
-			}
+	fmt.Println(fileReplyThisProposer.File)
+	if len(fileReplyThisProposer.File) == 0{
+		return errors.New("The second proposer should've been able to commit a message")
+		//Check that the right message has been commited
+		message := &chatclient.ChatMessage{}
+		err := json.Unmarshal(fileReplyThisProposer.File, message)
+		if err != nil {
+			return errors.New("Couldn't get message from log file")
 		}
-		Line3, _ := json.Marshal(line3)
-		if bytes.Compare(Line3, replyBytes2) == 0 && bytes.Compare(Line3, replyBytes1) != 0 {
-			errors.New("message 1 did not get added to the file!")
+
+		if *message != msg1 {
+			return errors.New("The message commited should be the first message")
 		}
 	}
 
-	//TODO this is working but Ani will create a function that will look at the log file before first send message
-	//make sure that after this send message file is not modified
-	//then make sure that after second send message that msg1 is in file not msg2!
+	fmt.Println("Pass test basic 2")
 
 	return nil
 }
@@ -220,20 +189,20 @@ func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int) error {
 	msg1 := chatclient.ChatMessage{"Srini", "testRoom", "lololollol :D", time.Now()}
 	bytes1, marshalErr := json.Marshal(msg1)
-	if(marshalErr != nil){
+	if (marshalErr != nil) {
 		return errors.New("error occurred while marshaling msg1 in testBasic2")
 	}
 
 	msg2 := chatclient.ChatMessage{"Taran", "testRoom", "get out hahaa", time.Now()}
 	bytes2, marshalErr1 := json.Marshal(msg2)
-	if(marshalErr1 != nil){
+	if (marshalErr1 != nil) {
 		return errors.New("error occurred while marshaling msg2 in testBasic2")
 	}
 
 
 	msg3 := chatclient.ChatMessage{"Sally", "testRoom", "cool stories", time.Now()}
 	bytes3, marshalErr2 := json.Marshal(msg3)
-	if(marshalErr2 != nil){
+	if (marshalErr2 != nil) {
 		return errors.New("error occurred while marshaling msg3 in testBasic2")
 	}
 
@@ -270,25 +239,26 @@ func testBasic3(cClient1 *chatclient.ChatClient, port1 int, port2 int, port3 int
 	time.Sleep(time.Second)
 	fmt.Println("SENDING SECOND MESSAGEEEEEE")
 	err2 := cClient1.SendMessage(args2, &multipaxos.SendMessageReplyArgs{})
-	if(err2 != nil){
+	if (err2 != nil) {
 		fmt.Println("Error 2", err2)
 		return err2
 	}
 
-	time.Sleep(time.Second*20)
+	time.Sleep(time.Second * 20)
 
 	err3 := cClient1.SendMessage(args3, &multipaxos.SendMessageReplyArgs{})
-	if(err3 != nil){
+	if (err3 != nil) {
 		fmt.Println("Error 3", err3)
 		return err3
 	}
 
-	time.Sleep(time.Second*2)
+	time.Sleep(time.Second * 2)
 	//TODO send the first one make and it wait right before it sends accept requests
 	//then do send args 2 while its waiting
 	//then wait for like 3 seconds nd try
 	//sending args 3
 
+	fmt.Println("pass test basic 3")
 	return nil
 }
 
@@ -723,9 +693,9 @@ func main(){
 //		err3 := testBasic3(cClient, 8080, 9990, 8081)
 //		fmt.Println(err3)
 
-		fmt.Println("TEST_BASIC_4")
-		err4 := testBasic4(cClient, 8080, 8081, 8082, 8083, 9990)
-		fmt.Println(err4)
+//		fmt.Println("TEST_BASIC_4")
+//		err4 := testBasic4(cClient, 8080, 8081, 8082, 8083, 9990)
+//		fmt.Println(err4)
 
 //		fmt.Println("TEST_BASIC_5")
 //		err4 := testBasic5(cClient, 8080, 9990, 8081, 8082, 8083)
