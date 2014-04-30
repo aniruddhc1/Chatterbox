@@ -45,8 +45,21 @@ function NewUser() {
 
         connection.onmessage = function(e){
            var server_message = e.data;
-           alert(server_message)
-           console.log(server_message);
+           console.log(server_message)
+
+           var msg = JSON.parse(server_message);
+           var user = msg.User
+           var content = msg.Content
+           var time = msg.Timestamp
+
+           var messageHolder = document.getElementById("messageHolder");
+           var numRows = messageHolder.getElementsByTagName('tr').length;
+
+           var row = messageHolder.insertRow(numRows);
+           var cell1 = row.insertCell(0);
+           var cell2 = row.insertCell(1);
+           cell1.innerHTML = user+" : " + content;
+           cell2.innerHTML = time;
         }
 
     } else {

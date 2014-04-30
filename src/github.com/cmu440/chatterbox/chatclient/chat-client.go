@@ -265,7 +265,7 @@ func (user *User) SendMessagesToUser() error{
 	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
 
-		time.Sleep(time.Second*10)
+		time.Sleep(time.Second*5)
 		fmt.Println("Trying to get log files")
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
@@ -285,17 +285,32 @@ func (user *User) SendMessagesToUser() error{
 
 		msgs := strings.Split(string(reply.File), "}{")
 		for i := 0; i < len(msgs); i++{
+			if len(msgs) > 1 {
+				if(i == 0){
+					msgs[i] = msgs[i]+ "}"
+				}else if i == len(msgs) -1 {
+					msgs[i] = "{" + msgs[i]
+				} else {
+					msgs[i] = "{" + msgs[i]+ "}"
+				}
+			}
+
 			fmt.Println("line is ", msgs[i])
 			message := &ChatMessage{}
 			byteMsgs := []byte(msgs[i])
-			json.Unmarshal(byteMsgs, message)
+			err = json.Unmarshal(byteMsgs, message)
+			if err != nil {
+				fmt.Println("Couldn't unmarshsal to create the message")
+			}
+			fmt.Println("User time is", user.TimeRecd)
+			fmt.Println("Message time is", message.Timestamp)
 			if(message.Timestamp.After(user.TimeRecd)){
 				fmt.Println("Sending to js now")
 				user.Connection.Write(bytes.Trim(byteMsgs, "\x00"))
+				user.TimeRecd = message.Timestamp
 			}
 		}
 		fmt.Println(err)
-		user.TimeRecd = time.Now()
 	}
 	return nil
 }
