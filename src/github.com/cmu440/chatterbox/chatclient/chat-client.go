@@ -13,10 +13,10 @@ import (
 	"encoding/json"
 	"time"
 	"math/rand"
-	"bufio"
 	"io/ioutil"
 	"html/template"
 	"os"
+	"strings"
 )
 
 type User struct{
@@ -263,15 +263,6 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 func (user *User) SendMessagesToUser() error{
 	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
-		/*
-		select {
-		case args := <-ChanCommitedMessages:
-			//var msg ChatMessage
-			//json.Unmarshal(args.Value, msg)
-			fmt.Println("Writing to Chat client!")
-			user.Connection.Write(args.Value)
-		}*/
-
 
 		time.Sleep(time.Second*10)
 		fmt.Println("Trying to get log files")
@@ -288,28 +279,24 @@ func (user *User) SendMessagesToUser() error{
 			return errCall
 		}
 
-		f, err1 := ioutil.TempFile("", "coolz")
-		if err1 != nil {
-			fmt.Println("Can't create a temp file :(")
-			continue
-		}
-		f.Write(reply.File)
-		reader := bufio.NewReader(f)
-
 		var err error
-		var line []byte
 		fmt.Println("Reading the lines right now")
+
 		for err == nil {
-			line, err = reader.ReadBytes('\n')
-			msg := &ChatMessage{}
-			json.Unmarshal(line, msg)
-			if(msg.Timestamp.After(user.TimeRecd)){
-				user.Connection.Write(line)
+			msgs := strings.Split(string(reply.File), "}{")
+			for i := 0; i < len(msgs); i++{
+				fmt.Println("line is ", msgs[i])
+				message := &ChatMessage{}
+				byteMsgs := []byte(msgs[i])
+				json.Unmarshal(byteMsgs, message)
+				if(message.Timestamp.After(user.TimeRecd)){
+					fmt.Println("Sending to js now")
+					user.Connection.Write(byteMsgs)
+				}
 			}
 		}
 		fmt.Println(err)
 		user.TimeRecd = time.Now()
-
 	}
 	return nil
 }

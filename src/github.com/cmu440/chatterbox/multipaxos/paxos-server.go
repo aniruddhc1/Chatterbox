@@ -22,7 +22,6 @@ import (
 	"time"
 	"sync"
 	"io/ioutil"
-	"bufio"
 )
 
 type paxosServer struct {
@@ -229,7 +228,6 @@ func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 			return err
 		}
 		reply.File = replyBytes
-		fmt.Println("in serve message file ***** ", replyBytes)
 
 		if err != nil{
 			fmt.Println(err)
