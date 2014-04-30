@@ -17,6 +17,7 @@ import (
 	"html/template"
 	"os"
 	"strings"
+	"bytes"
 )
 
 type User struct{
@@ -282,17 +283,15 @@ func (user *User) SendMessagesToUser() error{
 		var err error
 		fmt.Println("Reading the lines right now")
 
-		for err == nil {
-			msgs := strings.Split(string(reply.File), "}{")
-			for i := 0; i < len(msgs); i++{
-				fmt.Println("line is ", msgs[i])
-				message := &ChatMessage{}
-				byteMsgs := []byte(msgs[i])
-				json.Unmarshal(byteMsgs, message)
-				if(message.Timestamp.After(user.TimeRecd)){
-					fmt.Println("Sending to js now")
-					user.Connection.Write(byteMsgs)
-				}
+		msgs := strings.Split(string(reply.File), "}{")
+		for i := 0; i < len(msgs); i++{
+			fmt.Println("line is ", msgs[i])
+			message := &ChatMessage{}
+			byteMsgs := []byte(msgs[i])
+			json.Unmarshal(byteMsgs, message)
+			if(message.Timestamp.After(user.TimeRecd)){
+				fmt.Println("Sending to js now")
+				user.Connection.Write(bytes.Trim(byteMsgs, "\x00"))
 			}
 		}
 		fmt.Println(err)
