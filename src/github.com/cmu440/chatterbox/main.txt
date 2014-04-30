@@ -1138,7 +1138,6 @@ func main(){
 	}else{
 		//START ALL OTHER SERVERS
 		_, err2 := multipaxos.NewPaxosServer("localhost:8080", *N, *port) // starting node
-
 		if(err2 != nil){
 			fmt.Println(err2)
 		}

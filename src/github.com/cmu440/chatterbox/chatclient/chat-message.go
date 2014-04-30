@@ -10,6 +10,7 @@ type ChatMessage struct {
 	Room  string
 	Content  string
 	Timestamp  time.Time
+	TimeString string
 }
 
 

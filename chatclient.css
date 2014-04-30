@@ -102,3 +102,20 @@ h7 {
   -webkit-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
   transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
 }
+
+table, tr, td
+{
+padding-left: 10px;
+padding-right: 10px;
+color: black;
+font-size : 13px;
+font-family : "Myriad Web",Verdana,Helvetica,Arial,sans-serif;
+}
+
+#messageHolder {
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    width: 800px;
+}

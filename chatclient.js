@@ -18,8 +18,6 @@ function JoinRoom() {
 
 function NewUser() {
     userName = document.getElementById("userNameTextBox").value
-    alert(userName)
-
     if ('WebSocket' in window){
         /* WebSocket is supported. You can proceed with your code*/
         connection = new WebSocket("ws://localhost:1050/join?username="+userName)
@@ -50,7 +48,7 @@ function NewUser() {
            var msg = JSON.parse(server_message);
            var user = msg.User
            var content = msg.Content
-           var time = msg.Timestamp
+           var time = msg.TimeString
 
            var messageHolder = document.getElementById("messageHolder");
            var numRows = messageHolder.getElementsByTagName('tr').length;
@@ -58,8 +56,14 @@ function NewUser() {
            var row = messageHolder.insertRow(numRows);
            var cell1 = row.insertCell(0);
            var cell2 = row.insertCell(1);
-           cell1.innerHTML = user+" : " + content;
-           cell2.innerHTML = time;
+           var cell3 = row.insertCell(2);
+
+           cell1.innerHTML = user +" : "
+           cell2.innerHTML = content;
+           cell3.innerHTML = time;
+           cell1.style.width = '100px';
+           cell2.style.width = '500px';
+           cell3.style.width = '100px';
         }
 
     } else {
@@ -72,9 +76,9 @@ function NewUser() {
 }  
 
 function SendMessage(msg) {
-    alert("Sending a Message");
     msg = document.getElementById("message").value;
 	connection.send(msg);
+	document.getElementById("message").value = ""
 }
 
 function AddRoom(roomName){

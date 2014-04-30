@@ -285,6 +285,7 @@ func (user *User) SendMessagesToUser() error{
 
 		msgs := strings.Split(string(reply.File), "}{")
 		for i := 0; i < len(msgs); i++{
+			//loss of characters during string split
 			if len(msgs) > 1 {
 				if(i == 0){
 					msgs[i] = msgs[i]+ "}"
@@ -294,20 +295,21 @@ func (user *User) SendMessagesToUser() error{
 					msgs[i] = "{" + msgs[i]+ "}"
 				}
 			}
-
-			fmt.Println("line is ", msgs[i])
 			message := &ChatMessage{}
 			byteMsgs := []byte(msgs[i])
 			err = json.Unmarshal(byteMsgs, message)
+			messageTime := message.Timestamp
+			message.TimeString = message.Timestamp.Format(time.Kitchen)
+			msgBytes, _ := json.Marshal(message)
 			if err != nil {
 				fmt.Println("Couldn't unmarshsal to create the message")
 			}
 			fmt.Println("User time is", user.TimeRecd)
 			fmt.Println("Message time is", message.Timestamp)
-			if(message.Timestamp.After(user.TimeRecd)){
+			if(messageTime.After(user.TimeRecd)){
 				fmt.Println("Sending to js now")
-				user.Connection.Write(bytes.Trim(byteMsgs, "\x00"))
-				user.TimeRecd = message.Timestamp
+				user.Connection.Write(bytes.Trim(msgBytes, "\x00"))
+				user.TimeRecd = messageTime
 			}
 		}
 		fmt.Println(err)
