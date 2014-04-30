@@ -261,31 +261,29 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	fmt.Println("In Check Kill", ps.Port, "stage", currStage, "time", currTime)
 	if tester.Stage == currStage && tester.Time == currTime {
 		fmt.Println("got into if statement in check kill")
-		if tester.Kill {
-			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time, "Stopping at", currStage, currTime)
-			Active = false
+		var timeAmount int
+		Active = false
 
-			go func() {
-				t := time.NewTimer(6000 * time.Second)
-				select {
-				case <-t.C:
-					Active = true
-					//do nothing
-				case <-ps.wakeupChan:
-					Active = true
-					t.Stop()
-				}
-			}()
-			return true, nil
+		if tester.Kill {
+			timeAmount = 6000 //just a really large number to simulate sleeping
 		} else {
-			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
-			Active = false
-			time.Sleep(time.Second * time.Duration(tester.SleepTime))
-			Active = true
-			fmt.Println("STARTING AGAIN", ps.Port)
-			ps.CreatePaxosConnections()
-			return false, nil
+			timeAmount = tester.SleepTime
 		}
+
+		go func() {
+			t := time.NewTimer(time.Duration(timeAmount)* time.Second)
+			select {
+			case <-t.C:
+				Active = true
+				fmt.Println("WAKING UP")
+				//do nothing
+			case <-ps.wakeupChan:
+				Active = true
+				t.Stop()
+			}
+		}()
+
+		return true, nil
 	}
 	return false, nil
 }
@@ -529,7 +527,11 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 		conn := ps.RPCConnections[reply.AcceptorPort]
 
 		if time.Now().UnixNano()%2 == 0 {
-			ps.CheckKill(tester, "sendCommit", "mid")
+			b, _ := ps.CheckKill(tester, "sendCommit", "mid")
+			if b {
+				fmt.Println("SLEEEPING NOW")
+				return nil
+			}
 		}
 
 		commitArgs := &CommitArgs{Value: value, RoundID: ps.RoundID}

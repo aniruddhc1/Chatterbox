@@ -24,7 +24,7 @@ PID3=$!
 PID4=$!
 ./bin/chatterbox -isMaster=false -N=5 -port=8083 -registerAll=false &
 PID5=$!
-./bin/chatterbox -isMaster=false -N=5 -port=999 -registerAll=true
+./bin/chatterbox -isMaster=false -N=5 -port=999 -registerAll=true -testNum=9
 
 kill -9 $PID1
 kill -9 $PID2
