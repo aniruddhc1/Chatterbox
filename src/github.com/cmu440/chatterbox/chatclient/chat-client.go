@@ -25,6 +25,7 @@ type User struct{
 	Name string
 	Rooms *list.List //list of rooms a user is joined to
 	TimeRecd time.Time
+	FirstTime bool
 }
 
 type ChatRoom struct{
@@ -168,6 +169,8 @@ func (cc *ChatClient) FailedMessages() {
 	for {
 		select {
 		case req := <-ChanMessages:
+			randomSeconds := rand.Int() % 3
+			time.Sleep(time.Second*time.Duration(randomSeconds))
 			fmt.Println("Trying again to send the message")
 			cc.SendMessage(req, &multipaxos.SendMessageReplyArgs{})
 		}
@@ -195,6 +198,7 @@ func NewUser(ws *websocket.Conn) {
 		Name : username,
 		Rooms : list.New(),
 		TimeRecd : time.Now(),
+		FirstTime: true,
 	}
 
 	if _, ok := Users[username]; ok {
@@ -264,7 +268,6 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 func (user *User) SendMessagesToUser() error{
 	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
-
 		time.Sleep(time.Second*5)
 		fmt.Println("Trying to get log files")
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
@@ -306,13 +309,21 @@ func (user *User) SendMessagesToUser() error{
 			}
 			fmt.Println("User time is", user.TimeRecd)
 			fmt.Println("Message time is", message.Timestamp)
-			if(messageTime.After(user.TimeRecd)){
-				fmt.Println("Sending to js now")
+
+			//If the user just logged in display all previous messages so it catches up
+			if user.FirstTime {
 				user.Connection.Write(bytes.Trim(msgBytes, "\x00"))
 				user.TimeRecd = messageTime
+			} else {
+				if(messageTime.After(user.TimeRecd)){
+					fmt.Println("Sending to js now")
+					user.Connection.Write(bytes.Trim(msgBytes, "\x00"))
+					user.TimeRecd = messageTime
+				}
 			}
 		}
 		fmt.Println(err)
+		user.FirstTime = false
 	}
 	return nil
 }

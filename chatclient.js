@@ -32,15 +32,6 @@ function NewUser() {
 
         }
 
-        /*
-            To send messages to this function from server do something like this:
-                var message = {
-                'name': 'bill murray',
-                'comment': 'No one will ever believe you'
-                };
-            connection.send(JSON.stringify(message));
-        */
-
         connection.onmessage = function(e){
            var server_message = e.data;
            console.log(server_message)
@@ -70,9 +61,6 @@ function NewUser() {
         /*WebSockets are not supported. Try a fallback method like long-polling etc*/
         alert("Sorry you can't use our awesome chatterbox because your browser doesn't support websockets")
     }
-
-
-
 }  
 
 function SendMessage(msg) {
