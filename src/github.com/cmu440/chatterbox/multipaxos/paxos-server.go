@@ -22,7 +22,7 @@ import (
 	"time"
 	"sync"
 	"io/ioutil"
-	"bufio"
+	"strings"
 )
 
 type paxosServer struct {
@@ -220,7 +220,6 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 }
 
 func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
-	if(Active) {
 		fmt.Println("given the file")
 		fmt.Println(ps.CommittedMsgsFile.Name())
 		replyBytes, err := ioutil.ReadFile(ps.CommittedMsgsFile.Name())
@@ -228,14 +227,14 @@ func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 		if(err != nil){
 			return err
 		}
-		reply.File = replyBytes
-		fmt.Println("in serve message file ***** ", replyBytes)
+		replyBytes1 := bytes.Trim(replyBytes, "\x00")
+		reply.File = replyBytes1
 
 		if err != nil{
 			fmt.Println(err)
 			return err
 		}
-	}
+
 	return nil
 }
 
@@ -251,31 +250,35 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 
 
 func (ps *paxosServer) WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error{
+	fmt.Println("Wakingup server", ps.Port)
 	ps.wakeupChan <- true
 	return nil
 }
 
 //Functions related to Testing
-func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) error {
+func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime string) (bool, error) {
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
 	fmt.Println("In Check Kill", ps.Port, "stage", currStage, "time", currTime)
-	var err error
 	if tester.Stage == currStage && tester.Time == currTime {
 		fmt.Println("got into if statement in check kill")
 		if tester.Kill {
 			fmt.Println("KILLING", ps.Port, "Need to stop at", tester.Stage, tester.Time, "Stopping at", currStage, currTime)
 			Active = false
-			t := time.NewTimer(60 * time.Second)
-			select{
-			case <- t.C:
-				Active = true
-				//do nothing
-			case <- ps.wakeupChan:
-				Active = true
-				t.Stop()
-			}
+
+			go func() {
+				t := time.NewTimer(6000 * time.Second)
+				select {
+				case <-t.C:
+					Active = true
+					//do nothing
+				case <-ps.wakeupChan:
+					Active = true
+					t.Stop()
+				}
+			}()
+			return true, nil
 		} else {
 			fmt.Println("DELAYING", ps.Port, "Need to delay at", tester.Stage, tester.Time)
 			Active = false
@@ -283,54 +286,62 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 			Active = true
 			fmt.Println("STARTING AGAIN", ps.Port)
 			ps.CreatePaxosConnections()
+			return false, nil
 		}
 	}
-	return err
+	return false, nil
 }
 
 
 //Functions related to Recovery
 func (ps *paxosServer) SendRecover() error {
-	logs := make(map[int]*RecoverReplyArgs)
-	maxRound := 0
+	if(Active) {
+		fmt.Println("bugaboo in handle recover", ps.Port)
+		logs := make(map[int]*RecoverReplyArgs)
+		maxRound := 0
 
-	for port, conn := range ps.RPCConnections {
-		args := &RecoverArgs{ps.RoundID}
-		reply := &RecoverReplyArgs{}
+		for port, conn := range ps.RPCConnections {
+			args := &RecoverArgs{ps.RoundID}
+			reply := &RecoverReplyArgs{}
 
-		err := conn.Call("PaxosServer.HandleRecover", args, reply)
+			err := conn.Call("PaxosServer.HandleRecover", args, reply)
 
-		if err != nil {
-			fmt.Println("Error occured while calling Handle Recover", err)
-			return err
-		}
+			if err != nil {
+				fmt.Println("Error occured while calling Handle Recover", err)
+				continue
+			}
 
-		logs[port] = reply
-		if maxRound < reply.RoundID {
-			maxRound = reply.RoundID
-		}
-	}
-
-	//check that all logs are consistent and update this servers logs
-	for i:=ps.RoundID; i<maxRound; i++ {
-		//check to make sure that all of them are the same for that round id
-		var val []byte
-		for port, log := range logs {
-			if log.RoundID < i {
-				if val == nil {
-
-					val = log.CommittedValues[i]
-				}
-				if bytes.Equal(log.CommittedValues[i], val) {
-					//This should never happen
-					return errors.New("Paxos server " + strconv.Itoa(port) + " logs are not correct")
-				}
+			logs[port] = reply
+			if maxRound < reply.RoundID {
+				maxRound = reply.RoundID
 			}
 		}
 
-		ps.CommittedMsgs[ps.RoundID] = val
-		fmt.Println(ps.RoundID, ps.Port, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-		ps.RoundID++
+		//check that all logs are consistent and update this servers logs
+		for i := ps.RoundID; i < maxRound; i++ {
+			//check to make sure that all of them are the same for that round id
+			var val []byte
+			fmt.Println("RECOVERING ROUND", i)
+			for port, log := range logs {
+				if log.RoundID > ps.RoundID {
+					if val == nil {
+						fmt.Println("Got the first log from", port)
+						val = log.CommittedValues[i]
+					}
+					if !bytes.Equal(log.CommittedValues[i], val) {
+						fmt.Println("Log not equal is", port)
+						//This should never happen
+						fmt.Println("POOOOOOOOP")
+						return errors.New("Paxos server " + strconv.Itoa(port) + " logs are not correct")
+					}
+				}
+			}
+
+			ps.CommittedMsgs[ps.RoundID] = val
+			ps.CommittedMsgsFile.Write(bytes.Trim(val, "\x00"))
+			fmt.Println(ps.RoundID, ps.Port, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+			ps.RoundID++
+		}
 	}
 
 	return nil
@@ -339,7 +350,7 @@ func (ps *paxosServer) SendRecover() error {
 func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs) error {
 	//If this server is behind the server trying to recover then first recover yourself
 	if(Active) {
-		if args.RoundID < ps.RoundID {
+		if args.RoundID > ps.RoundID {
 			err := ps.SendRecover()
 			if err != nil {
 				errors.New("Couldn't recover this one so cant send updated logs")
@@ -348,6 +359,8 @@ func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs)
 
 		reply.RoundID = ps.RoundID
 		reply.CommittedValues = ps.CommittedMsgs
+	} else {
+		return errors.New("Server is sleeping")
 	}
 	return nil
 }
@@ -355,7 +368,10 @@ func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs)
 //Functions related to Proposer
 func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error {
 	fmt.Println("In Propose", ps.Port)
-	ps.CheckKill(&args.Tester, "sendPropose", "start")
+	b, err := ps.CheckKill(&args.Tester, "sendPropose", "start")
+	if b {
+		return err
+	}
 	fmt.Println("Done with check kill")
 
 	if ps.MaxSeenProposalID > ps.ProposalID {
@@ -399,7 +415,10 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 					proposeReply.Accepted, "Pair is ", proposeReply.Pair, "Proposer is", ps.Port)
 
 				if time.Now().UnixNano()%2 == 0 {
-					ps.CheckKill(&args.Tester, "sendPropose", "mid")
+					b, e := ps.CheckKill(&args.Tester, "sendPropose", "mid")
+					if b {
+						return e
+					}
 				}
 
 				if proposeReply.Pair != nil {
@@ -408,8 +427,8 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 					}
 				}
 
-				if proposeReply.RoundID != ps.RoundID {
-					fmt.Println("Propose Round Id's do not match need to recover my round id:",ps.RoundID, "proposeReply id", proposeReply.RoundID)
+				if proposeReply.RoundID > ps.RoundID {
+					fmt.Println(ps.Port, "Propose Round Id's do not match need to recover my round id:",ps.RoundID, "proposeReply id", proposeReply.RoundID)
 					err := ps.SendRecover()
 					if err != nil {
 						fmt.Println("Couldn't recover", err)
@@ -447,7 +466,10 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 
 func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []byte, tester *Tester) error {
 	fmt.Println("Sending Accept Requests")
-	ps.CheckKill(tester, "sendAccept", "start")
+	b, e := ps.CheckKill(tester, "sendAccept", "start")
+	if b {
+		return e
+	}
 
 	majority := ps.NumNodes/2 + ps.NumNodes%2
 
@@ -478,7 +500,10 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 		}
 	}
 
-	_ = ps.CheckKill(tester, "sendAccept", "end")
+	b, e = ps.CheckKill(tester, "sendAccept", "end")
+	if b {
+		return e
+	}
 	if ps.AcceptedQueue.Len() >= majority {
 		err := ps.SendCommit(acceptors, value, tester)
 		return err
@@ -487,7 +512,10 @@ func (ps *paxosServer) SendAcceptRequests(acceptors *list.List, id int, value []
 }
 
 func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Tester) error {
-	ps.CheckKill(tester, "sendCommit", "start")
+	b, e := ps.CheckKill(tester, "sendCommit", "start")
+	if b {
+		return e
+	}
 	fmt.Println("Send Commit")
 	ImAnAcceptor := false
 
@@ -525,7 +553,10 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 			fmt.Println("error in send commit request ", err)
 		}
 	}
-	ps.CheckKill(tester, "sendCommit", "end")
+	b, e = ps.CheckKill(tester, "sendCommit", "end")
+	if b {
+		return e
+	}
 	fmt.Println("end of send commit ")
 	return nil
 }
@@ -533,7 +564,7 @@ func (ps *paxosServer) SendCommit(acceptors *list.List, value []byte, tester *Te
 //Functions related to Acceptor
 func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeReplyArgs) error {
 	if(Active) {
-		fmt.Println("Handle Propose Request")
+		fmt.Println("Handle Propose Request", ps.Port)
 		reply.RoundID = ps.RoundID
 		reply.AcceptorPort = ps.Port
 
@@ -546,6 +577,7 @@ func (ps *paxosServer) HandleProposeRequest(args *ProposeArgs, reply *ProposeRep
 			reply.Accepted = false
 			return nil
 		} else if args.RoundID > ps.RoundID {
+			fmt.Println(ps.Port, "Trying ot recover", "my port", ps.RoundID, "the args round id is", args.RoundID)
 			err := ps.SendRecover()
 			if err != nil {
 				fmt.Println("Paxos Server", ps.Port, "was behind and couldn't recover properly")
@@ -580,6 +612,7 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 			reply.Accepted = false
 			return nil
 		} else if args.RoundID > ps.RoundID {
+			fmt.Println("Sending Recover in Handle Accept Request", ps.Port)
 			err := ps.SendRecover()
 			if err != nil {
 				fmt.Println("Couldn't recover", err)
@@ -591,6 +624,8 @@ func (ps *paxosServer) HandleAcceptRequest(args *AcceptRequestArgs, reply *Accep
 
 		ps.ToCommitQueue.PushBack(KeyValuePair{args.ProposalID, args.Value})
 		reply.Accepted = true
+	} else {
+		return errors.New("Server is sleeping")
 	}
 	return nil
 
@@ -602,12 +637,15 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error 
 
 		ps.CommittedMsgs[args.RoundID] = args.Value
 
-		_, err := ps.CommittedMsgsFile.Write(args.Value)
+		trimMsg := strings.Trim(string(args.Value), "\000")
+		_, err := ps.CommittedMsgsFile.WriteString(trimMsg)
+
 		if (err != nil) {
 			return err
 		}
 
 		if ps.RoundID < args.RoundID {
+			fmt.Println("Calling Send Recover in Handle Commit", ps.Port)
 			err := ps.SendRecover()
 			if err != nil {
 				fmt.Println("Couldn't recover", err)
@@ -626,6 +664,8 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error 
 				break
 			}
 		}
+	} else {
+		fmt.Println("Server is sleeping")
 	}
 	return nil
 }
@@ -642,6 +682,8 @@ func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) err
 			reply.Ready = false
 
 		}
+	} else {
+		errors.New("Server is sleeping")
 	}
 	return nil
 }

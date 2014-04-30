@@ -12,7 +12,7 @@
 #
 #testPaxos
 
-
+python purge.py
 go install github.com/cmu440/chatterbox/
 ./bin/chatterbox -isMaster=true -N=5 -port=8080 -registerAll=false &
 PID1=$!
