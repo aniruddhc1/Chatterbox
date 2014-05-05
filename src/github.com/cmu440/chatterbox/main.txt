@@ -77,7 +77,7 @@ func testBasic1(cclient *chatclient.ChatClient) error{
 /*
  * Does one iteration of paxos with the failure of first proposer after sending
  * accept messages. Test that it commits the right message (the first one should be
- * commited)
+ * committed)
  */
 func testBasic2(cClient1 *chatclient.ChatClient, port1 int, port2 int) error {
 	fmt.Println("starting testbasic2")
@@ -667,7 +667,7 @@ func testBasic5(cclient *chatclient.ChatClient, port1, port2, port3, port4, port
 
 
 /**
- Simple majority check, if out of 5 servers 3 are dead the message should not get commtied!
+ Simple majority check, if out of 5 servers 3 are dead the message should not get committed!
  */
 func testBasic6(cclient *chatclient.ChatClient, port1, port2, port3, port4, port5 int) error {
 	argsKill1 := &multipaxos.SendMessageArgs{
@@ -863,7 +863,7 @@ func testBasic7(cclient *chatclient.ChatClient, port1, port2, port3, port4, port
 }
 
 /*
- * check recovery of a node that dies after sending accept messages
+ * Check recovery of a node that dies after sending accept messages
  */
 func testBasic8(cclient *chatclient.ChatClient, port1, port2, port3, port4, port5 int) error {
 	msg1 := chatclient.ChatMessage{"alockwoo", "awesome", "poopmaster", time.Now(), ""}
@@ -981,7 +981,7 @@ func testBasic8(cclient *chatclient.ChatClient, port1, port2, port3, port4, port
 }
 
 /*
- * check recovery of a node that dies in the middle of sending commit messages
+ * Check recovery of a node that dies in the middle of sending commit messages
  */
 func testBasic9(cclient *chatclient.ChatClient, port1, port2, port3, port4, port5 int) error {
 
@@ -1056,11 +1056,11 @@ func testBasic9(cclient *chatclient.ChatClient, port1, port2, port3, port4, port
 
 func main(){
 	isMaster := flag.Bool("isMaster", false, "to check if its a master server or not ")
-
 	N := flag.Int("N", 0, "to specify the number of servers")
+	registerAll := flag.Bool("registerAll", false, "start test cases once all servers have been registered")
 	port := flag.Int("port", 1111, "to specify the port number to start the master server on")
 	testNum := flag.Int("testNum", 0, "the number of the test we want to run")
-	registerAll := flag.Bool("registerAll", false, "start test cases once all servers have been registered")
+
 	flag.Parse()
 
 

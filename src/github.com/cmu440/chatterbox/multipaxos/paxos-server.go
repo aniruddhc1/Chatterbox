@@ -56,7 +56,6 @@ type paxosServer struct {
 	wakeupChan chan bool
 
 }
-
 	var Active bool
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
@@ -407,8 +406,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 				fmt.Println("Error while calling HandleProposeRequest", replyCall.Error)
 				continue
 			} else {
-				fmt.Println("Proposing reply port", proposeReply.AcceptorPort, "round ", proposeReply.RoundID, "accepted? ",
-					proposeReply.Accepted, "Pair is ", proposeReply.Pair, "Proposer is", ps.Port)
 
 				if time.Now().UnixNano()%2 == 0 {
 					b, e := ps.CheckKill(&args.Tester, "sendPropose", "mid")
@@ -688,3 +685,10 @@ func (ps *paxosServer) GetServers(_ *GetServersArgs, reply *GetServersReply) err
 	return nil
 }
 
+func (ps* paxosServer) ReplaceServer (args *ReplacePaxosServerArgs, reply *ReplacePaxosServerReply) error {
+	if ps.MasterHostPort == "" {
+		//This is the "master"
+	} else {
+		ps.RPCConnections []
+	}
+}

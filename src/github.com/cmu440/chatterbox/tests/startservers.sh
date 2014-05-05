@@ -12,6 +12,8 @@
 #
 #testPaxos
 
+#https://piazza.com/class/hpg0w1smeadca?cid=894
+
 python purge.py
 go install github.com/cmu440/chatterbox/
 ./bin/chatterbox -isMaster=true -N=5 -port=8080 -registerAll=false &
@@ -24,7 +26,7 @@ PID3=$!
 PID4=$!
 ./bin/chatterbox -isMaster=false -N=5 -port=8083 -registerAll=false &
 PID5=$!
-./bin/chatterbox -isMaster=false -N=5 -port=999 -registerAll=true -testNum=3
+./bin/chatterbox -isMaster=false -N=5 -port=999 -registerAll=true -testNum=4
 
 kill -9 $PID1
 kill -9 $PID2

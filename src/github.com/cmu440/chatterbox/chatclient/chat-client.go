@@ -223,9 +223,9 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 		err := websocket.Message.Receive(user.Connection, &content)
 		fmt.Println("Received a message", content)
 
-		if err != nil {
+		if err != nil  {
 			fmt.Println("err while receiving a message!", err)
-			continue
+			return
 		}
 
 		msg := ChatMessage {
@@ -268,7 +268,7 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 func (user *User) SendMessagesToUser() error{
 	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
-		time.Sleep(time.Second*5)
+		time.Sleep(time.Second*2)
 		fmt.Println("Trying to get log files")
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
@@ -285,6 +285,10 @@ func (user *User) SendMessagesToUser() error{
 
 		var err error
 		fmt.Println("Reading the lines right now")
+
+		if len(reply.File) <= 0 {
+			continue
+		}
 
 		msgs := strings.Split(string(reply.File), "}{")
 		for i := 0; i < len(msgs); i++{

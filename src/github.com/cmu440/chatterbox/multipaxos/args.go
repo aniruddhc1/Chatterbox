@@ -107,3 +107,12 @@ type WakeupRequestArgs struct{
 type WakeupReplyArgs struct{
 
 }
+
+type ReplacePaxosServerArgs struct {
+	PaxosServerToReplace 	int
+	PaxosServerNew			int
+}
+
+type ReplacePaxosServerReply struct{
+
+}
