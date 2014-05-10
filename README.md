@@ -1,4 +1,1 @@
-15440-P3
-========
-
-Chatterbox! Yay!
+[Chatterbox_README.pdf](Chatterbox_README.pdf)
