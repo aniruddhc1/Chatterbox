@@ -10,6 +10,8 @@ type RemotePaxosServer interface {
 	GetServers(args *GetServersArgs, reply *GetServersReply) error
 	ServeMessageFile(args *FileArgs, reply *FileReply) error
 	WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error
+	ReplaceServer(args *ReplaceServerArgs, reply *ReplaceServerReply) error
+	SendRecover(args *ManualRecoverArgs, reply *ManualRecoverReply) error
 }
 
 type PaxosServer struct {

@@ -108,11 +108,21 @@ type WakeupReplyArgs struct{
 
 }
 
-type ReplacePaxosServerArgs struct {
-	PaxosServerToReplace 	int
-	PaxosServerNew			int
+type ReplaceServerArgs struct {
+	DeadNode int
+	MasterHostPort string
+	NewNode int
+	PaxosNode int
 }
 
-type ReplacePaxosServerReply struct{
+type ReplaceServerReply struct {
+
+}
+
+type ManualRecoverArgs struct{
+	PaxosNode int
+}
+
+type ManualRecoverReply struct {
 
 }

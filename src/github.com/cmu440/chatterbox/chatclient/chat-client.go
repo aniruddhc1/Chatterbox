@@ -97,7 +97,6 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 		return nil, err
 	}
 
-	//TODO do the weird waiting thing, for now assume that it is done
 	PaxosServers = getServerReply.Servers
 	fmt.Println("Set the Paxos Servers", len(PaxosServers))
 
@@ -223,7 +222,7 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 		err := websocket.Message.Receive(user.Connection, &content)
 		fmt.Println("Received a message", content)
 
-		if err != nil  {
+		if err != nil {
 			fmt.Println("err while receiving a message!", err)
 			return
 		}
@@ -268,7 +267,7 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 func (user *User) SendMessagesToUser() error{
 	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
-		time.Sleep(time.Second*2)
+		time.Sleep(time.Second*3)
 		fmt.Println("Trying to get log files")
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
@@ -369,6 +368,14 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 	return nil
 }
 
+func (cc *ChatClient) SendReplaceMessage(args *multipaxos.ReplaceServerArgs, reply *multipaxos.ReplaceServerReply) error {
+	conn := PaxosServerConnections[args.PaxosNode]
+	errCall := conn.Call("PaxosServer.ReplaceServer", &args, &reply)
+	fmt.Println(args.PaxosNode, errCall)
+
+	return errCall
+}
+
 func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error {
 	return ClientConn.Call("PaxosServer.GetServers", args, reply)
 }
@@ -385,12 +392,34 @@ func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.Fi
 	return nil
 }
 
-func (cc *ChatClient) GetRooms() error {
-	//TODO for testing
-	return errors.New("Unimplemented")
+func (cc *ChatClient) UpdateServers(deadNode, newNode int) error {
+	getServerArgs :=  &multipaxos.GetServersArgs{}
+	getServerReply := &multipaxos.GetServersReply{}
+
+	err := cc.GetServers(getServerArgs, getServerReply)
+	if err != nil {
+		fmt.Println("Error occured while getting servers", err)
+		return  err
+	}
+	PaxosServers = getServerReply.Servers
+
+	//delete connection to deadnode and update this one
+	delete(PaxosServerConnections, deadNode)
+
+	serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(newNode))
+	if dialErr != nil {
+		fmt.Println("Error occured while dialing to all servers", dialErr)
+		return  dialErr
+	} else {
+		PaxosServerConnections[newNode] = serverConn
+	}
+
+	return nil
 }
 
-func (cc *ChatClient) GetUsers() error {
-	//TODO for testing
-	return errors.New("Unimplemented")
+func(cc *ChatClient) SendManualRecover(args *multipaxos.ManualRecoverArgs, reply *multipaxos.ManualRecoverReply) error {
+	conn := PaxosServerConnections[args.PaxosNode]
+	err := conn.Call("PaxosServer.SendRecover", args, reply)
+	return err
 }
+

@@ -6,6 +6,8 @@ import "github.com/cmu440/chatterbox/multipaxos"
 type RemoteChatClient interface {
 	SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error
 	GetServers(args *multipaxos.GetServersArgs, reply*multipaxos.GetServersReply) error
+	SendReplaceMessage(args *multipaxos.ReplaceServerArgs, reply *multipaxos.ReplaceServerReply) error
+	SendManualRecover(args *multipaxos.ManualRecoverArgs, reply *multipaxos.ManualRecoverReply) error
 }
 
 type ChatServer struct {

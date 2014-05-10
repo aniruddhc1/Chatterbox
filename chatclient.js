@@ -1,8 +1,18 @@
 var connection      //websocket connection
-
+var roomMessages = new Object(); // or var map = {};
+var joinedRooms = newObject()
 function JoinRoom() {
-	roomName = document.getElementById("roomName").value
-	
+   // var roomName = document.getElementById("roomName").value
+
+	//var room = joinedRooms[roomName];
+	//if room != undefined {
+	//    alert("Already in this room switch tab to see messages")
+	//    return
+	//}
+
+	//map[roomName] = new Array();
+
+
 	var ul = document.getElementById("RoomPanel");
 	
 	var li = document.createElement("li"); 
@@ -14,6 +24,8 @@ function JoinRoom() {
 	
 	li.appendChild(a);
 	ul.appendChild(li);
+
+
 }
 
 function NewUser() {
@@ -33,6 +45,11 @@ function NewUser() {
         }
 
         connection.onmessage = function(e){
+
+           var ul = document.getElementById("RoomPanel");
+
+          // var lis = ul.getElementsByTagName("li");
+
            var server_message = e.data;
            console.log(server_message)
 
@@ -40,6 +57,17 @@ function NewUser() {
            var user = msg.User
            var content = msg.Content
            var time = msg.TimeString
+
+        /*
+           var len = lis.length
+           var activeLi
+           for (var i = 0; i < len; i++ ) {
+                if lis[i].class == "active" {
+                    activeLi = li
+                }
+           }
+
+        */
 
            var messageHolder = document.getElementById("messageHolder");
            var numRows = messageHolder.getElementsByTagName('tr').length;

@@ -1,18 +1,5 @@
 #!/bin/bash
-#
-#go install github.com/cmu440/chatterbox/
-#
-#PAXOS_SERVER=$GOPATH/bin/chatterbox
-#
-#
-#function testPaxos {
-#    ${PAXOS_SERVER} -isMaster=${isMaster} -N=${N} -port=${STORAGE_PORT_MASTER} -registerAll=${registerAll}
-#    STORAGE_SERVER_PID[0]=$!
-#}
-#
 #testPaxos
-
-#https://piazza.com/class/hpg0w1smeadca?cid=894
 
 python purge.py
 go install github.com/cmu440/chatterbox/
@@ -26,7 +13,7 @@ PID3=$!
 PID4=$!
 ./bin/chatterbox -isMaster=false -N=5 -port=8083 -registerAll=false &
 PID5=$!
-./bin/chatterbox -isMaster=false -N=5 -port=999 -registerAll=true -testNum=4
+./bin/chatterbox -isMaster=false -N=5 -port=999 -registerAll=true -testNum=0
 
 kill -9 $PID1
 kill -9 $PID2
