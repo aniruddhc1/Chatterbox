@@ -1,1 +1,2 @@
-[Chatterbox_README.pdf](View the documentation here!)
+[View the documentation here!](Chatterbox_README.pdf)
+
