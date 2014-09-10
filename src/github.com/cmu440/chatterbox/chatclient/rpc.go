@@ -1,5 +1,3 @@
-//todo fix this.
-
 package chatclient
 import "github.com/cmu440/chatterbox/multipaxos"
 

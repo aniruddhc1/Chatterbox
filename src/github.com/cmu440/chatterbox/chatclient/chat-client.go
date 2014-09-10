@@ -53,8 +53,7 @@ var ChanMessages chan *multipaxos.SendMessageArgs
 var ChanCommitedMessages chan *multipaxos.SendMessageArgs
 
 func NewChatClient(port string, paxosPort int) (*ChatClient, error){
-	fmt.Println("Starting a New Chat Client")
-	//TODO setup ClientConn, and Paxos Servers
+	//Starting a New Chat Client
 	chatclient := &ChatClient{}
 
 	errRegister := rpc.RegisterName("ChatClient", Wrap(chatclient))
@@ -67,7 +66,7 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 	listener, errListen := net.Listen("tcp", ":"+port)
 
 	if errListen != nil {
-		fmt.Println("Couldln't listen test chat client", errListen)
+		fmt.Println("Couldn't listen to test chat client", errListen)
 		return nil, errListen
 	}
 
@@ -75,22 +74,22 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 
 	chatConn, errDial := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(paxosPort))
 	if errDial != nil {
-		fmt.Println("Couldn't dialtest chat client", errDial)
+		fmt.Println("Couldn't dial test chat client", errDial)
 		return nil, errDial
 	}
 
 	//INITIALIZING GLOBAL VARIABLES
-	Rooms = list.New()		//list of Chatroom objects
-	Users = make(map[string] *User) 	//list of UserObjects
-	PaxosServerConnections = make(map[int] *rpc.Client)
+	Rooms = list.New()										//list of Chatroom objects
+	Users = make(map[string] *User) 						//list of UserObjects
+	PaxosServerConnections = make(map[int] *rpc.Client)		//map of all connections
 	ClientConn = chatConn
 	ChanMessages = make(chan *multipaxos.SendMessageArgs)
-
 
 	//GETTING ALL PAXOS SERVER CONNECTIONS
 	getServerArgs :=  &multipaxos.GetServersArgs{}
 	getServerReply := &multipaxos.GetServersReply{}
 
+	//get servers
 	err := chatclient.GetServers(getServerArgs, getServerReply)
 	if err != nil {
 		fmt.Println("Error occured while getting servers", err)
@@ -106,20 +105,19 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 
 		serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(currPort))
 		if dialErr != nil {
-			fmt.Println("Error occured while dialing to all servers", dialErr)
+			fmt.Println("Error occurred while dialing to all servers", dialErr)
 			return nil, dialErr
 		} else {
 			PaxosServerConnections[currPort] = serverConn
 		}
 	}
 
-	//http.Handle("/", http.FileServer(http.Dir(".")))
 	http.HandleFunc("/css/", func(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(r.URL.Path[5:])
 			f, err := os.Open(r.URL.Path[5:])
 
 			if err != nil {
-				fmt.Println("blabjalh", err)
+				fmt.Println(err)
 			}
 
 			http.ServeContent(w, r, ".css", time.Now(), f)
@@ -129,7 +127,7 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 			f, err := os.Open(r.URL.Path[4:])
 
 			if err != nil {
-				fmt.Println("alkdjfalkfd", err)
+				fmt.Println(err)
 			}
 
 			http.ServeContent(w, r, ".js", time.Now(), f)
@@ -139,7 +137,7 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 			f, err := os.Open(r.URL.Path[8:])
 
 			if err != nil {
-				fmt.Println("alkdjfalkfd", err)
+				fmt.Println(err)
 			}
 
 			http.ServeContent(w, r, ".jpg", time.Now(), f)
@@ -148,18 +146,17 @@ func NewChatClient(port string, paxosPort int) (*ChatClient, error){
 	http.HandleFunc("/", startPageHandler)
 	http.Handle("/join", websocket.Handler(NewUser))
 
-	fmt.Println("Finished Creating New Chat Client")
+	//Finished creating new chat client successfully
 	return chatclient, nil
 }
 
 func startPageHandler(w http.ResponseWriter, r *http.Request){
-	fmt.Println("in start page handler")
 	t, _ := template.ParseFiles("startPage.html")
 	if t == nil {
-		fmt.Println("why is t nil?")
+		fmt.Println("t is nil")
 	}
 	if w == nil {
-		fmt.Println("why is w nil?")
+		fmt.Println("w is nil?")
 	}
 	t.Execute(w, nil)
 }
@@ -170,16 +167,12 @@ func (cc *ChatClient) FailedMessages() {
 		case req := <-ChanMessages:
 			randomSeconds := rand.Int() % 3
 			time.Sleep(time.Second*time.Duration(randomSeconds))
-			fmt.Println("Trying again to send the message")
 			cc.SendMessage(req, &multipaxos.SendMessageReplyArgs{})
 		}
 	}
-
 }
 
-//TODO called by the http.Handler when we set up the rendering stuff
 func NewUser(ws *websocket.Conn) {
-	fmt.Println("Creating New User")
 	username := ws.Request().URL.Query().Get("username")
 	fmt.Println("Username is", username)
 
@@ -191,7 +184,6 @@ func NewUser(ws *websocket.Conn) {
 		return
 	}
 
-	fmt.Println("HERE")
 	joiningUser := &User{
 		Connection : ws,
 		Name : username,
@@ -201,7 +193,6 @@ func NewUser(ws *websocket.Conn) {
 	}
 
 	if _, ok := Users[username]; ok {
-		//TODO handle the case when the user is already in chatterbox
 	}
 
 	Users[username] = joiningUser
@@ -214,13 +205,9 @@ func NewUser(ws *websocket.Conn) {
 }
 
 func (user *User) GetInfoFromUser (ws *websocket.Conn) {
-	fmt.Println("Inside GETINFOFROMUSER")
 	for {
-		//TODO RECEIVE messages from user and if the message is to join a new room update stats
-		//else if its  a message call SendMessage
 		var content string
 		err := websocket.Message.Receive(user.Connection, &content)
-		fmt.Println("Received a message", content)
 
 		if err != nil {
 			fmt.Println("err while receiving a message!", err)
@@ -229,22 +216,20 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 
 		msg := ChatMessage {
 			User: user.Name,
-			Room:  "still working on this",	//TODO
+			Room:  "roomName",
 			Content: content,
 			Timestamp:  time.Now(),
 		}
 		msgString, err := msg.ToString()
 		if err!= nil {
-			fmt.Println("Why Couldn't message become a string", msgString , err)
+			fmt.Println("Why couldn't message become a string.. unlikely", msgString , err)
 		}
 		fmt.Println(msgString)
 
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
-		fmt.Println("Sending a message to", randPort)
 
 		bytes, marshalErr := json.Marshal(msg)
 		if marshalErr != nil {
-			fmt.Println("Couldn't marshall the message", marshalErr)
 			continue
 		}
 
@@ -265,17 +250,14 @@ func (user *User) GetInfoFromUser (ws *websocket.Conn) {
 }
 
 func (user *User) SendMessagesToUser() error{
-	fmt.Println("Inside SENDMESSAGESTOUSER")
 	for {
 		time.Sleep(time.Second*3)
-		fmt.Println("Trying to get log files")
 		randPort := PaxosServers[rand.Int()%len(PaxosServers)]
 		conn := PaxosServerConnections[randPort]
 		args := &multipaxos.CommitReplyArgs{}
 		reply := &multipaxos.FileReply{}
 
 		errCall := conn.Call("PaxosServer.ServeMessageFile", &args, &reply)
-		fmt.Println("Finished call")
 
 		if(errCall != nil){
 			fmt.Println(errCall)
@@ -283,7 +265,6 @@ func (user *User) SendMessagesToUser() error{
 		}
 
 		var err error
-		fmt.Println("Reading the lines right now")
 
 		if len(reply.File) <= 0 {
 			continue
@@ -310,8 +291,6 @@ func (user *User) SendMessagesToUser() error{
 			if err != nil {
 				fmt.Println("Couldn't unmarshsal to create the message")
 			}
-			fmt.Println("User time is", user.TimeRecd)
-			fmt.Println("Message time is", message.Timestamp)
 
 			//If the user just logged in display all previous messages so it catches up
 			if user.FirstTime {
@@ -319,7 +298,6 @@ func (user *User) SendMessagesToUser() error{
 				user.TimeRecd = messageTime
 			} else {
 				if(messageTime.After(user.TimeRecd)){
-					fmt.Println("Sending to js now")
 					user.Connection.Write(bytes.Trim(msgBytes, "\x00"))
 					user.TimeRecd = messageTime
 				}
@@ -339,7 +317,6 @@ type Page struct{
 func loadPage(title string) (*Page, error) {
 	body, err := ioutil.ReadFile(title)
 	if(err != nil){
-		fmt.Println("Couldn't get file", err)
 		return nil, err
 	}
 	return &Page{
@@ -348,10 +325,8 @@ func loadPage(title string) (*Page, error) {
 	}, nil
 }
 
-
 func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multipaxos.SendMessageReplyArgs) error {
 	go func() {
-		fmt.Println("Sending Message in Chat Client", args.PaxosPort)
 		conn := PaxosServerConnections[args.PaxosPort]
 
 		errCall := conn.Call("PaxosServer.SendMessage", &args, &reply)
@@ -360,9 +335,7 @@ func (cc *ChatClient)SendMessage(args *multipaxos.SendMessageArgs, reply *multip
 			ChanMessages <- args
 		} else {
 			ChanCommitedMessages <- args
-			fmt.Println("Successfully commited message", args.PaxosPort)
 		}
-
 	}()
 
 	return nil
@@ -380,9 +353,7 @@ func (cc *ChatClient)GetServers(args *multipaxos.GetServersArgs, reply*multipaxo
 	return ClientConn.Call("PaxosServer.GetServers", args, reply)
 }
 
-
 func (cc *ChatClient) GetLogFile(args *multipaxos.FileArgs, reply *multipaxos.FileReply) error{
-	fmt.Println("in getlogfile for port number ", args.Port)
 	conn := PaxosServerConnections[args.Port]
 	err := conn.Call("PaxosServer.ServeMessageFile", args, reply)
 	if(err != nil){
@@ -398,8 +369,7 @@ func (cc *ChatClient) UpdateServers(deadNode, newNode int) error {
 
 	err := cc.GetServers(getServerArgs, getServerReply)
 	if err != nil {
-		fmt.Println("Error occured while getting servers", err)
-		return  err
+		return err
 	}
 	PaxosServers = getServerReply.Servers
 
@@ -408,7 +378,6 @@ func (cc *ChatClient) UpdateServers(deadNode, newNode int) error {
 
 	serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(newNode))
 	if dialErr != nil {
-		fmt.Println("Error occured while dialing to all servers", dialErr)
 		return  dialErr
 	} else {
 		PaxosServerConnections[newNode] = serverConn

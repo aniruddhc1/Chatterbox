@@ -60,7 +60,7 @@ type paxosServer struct {
 	var Active bool
 
 func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, error) {
-	fmt.Println("CREATING NEWWWW SERVERRR")
+	//creating new server
 	timeString := time.Now().String()
 	file, err := os.Create(strconv.Itoa(port)+"|"+ timeString)
 
@@ -105,7 +105,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 	//Register the server http://angusmacdonald.me/writing/paxos-by-example/ to RPC
 	errRegister := rpc.RegisterName("PaxosServer", Wrap(paxosServer))
 	if errRegister != nil {
-		fmt.Println("An error occured while doing rpc register", errRegister)
 		return nil, errRegister
 	}
 	rpc.HandleHTTP()
@@ -113,7 +112,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 	//Start a lister for the server
 	listener, errListen := net.Listen("tcp", ":"+strconv.Itoa(paxosServer.Port))
 	if errListen != nil {
-		fmt.Println("An error occured while trying to listen", errListen)
 		return nil, errListen
 	}
 
@@ -127,7 +125,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 	if masterHostPort != "" {
 		regular, errDial = rpc.DialHTTP("tcp", masterHostPort)
 		if errDial != nil {
-			//fmt.Println("Slave couldn't connect to master", errDial)
 			return nil, errDial
 		}
 	}
@@ -142,7 +139,6 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 			//This is a master paxos server that others will register to
 			err = paxosServer.RegisterServer(args, reply)
 			if err != nil {
-				//fmt.Println(paxosServer.Port, err, "SLEEPING for SECOND")
 				time.Sleep(time.Second)
 				continue
 			}
@@ -150,13 +146,10 @@ func NewPaxosServer(masterHostPort string, numNodes, port int) (*paxosServer, er
 			//This is a regular paxos server
 			err := regular.Call("PaxosServer.RegisterServer", args, reply)
 			if err != nil {
-				//fmt.Println(paxosServer.Port, err, "SLEEPING for SECOND")
 				time.Sleep(time.Second)
 				continue
 			}
 		}
-
-		//fmt.Println("Setting paxos servers", paxosServer.Port, reply.NumConnected)
 		paxosServer.Servers = reply.Servers
 		break
 	}
@@ -178,6 +171,7 @@ func (ps *paxosServer) CreatePaxosConnections() error{
 		serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(currPort))
 		if dialErr != nil {
 			fmt.Println("Error occured while dialing to all servers", dialErr)
+			return dialErr
 		} else {
 			ps.RPCConnections[currPort] = serverConn
 		}
@@ -193,7 +187,6 @@ func (ps *paxosServer) CreatePaxosConnections() error{
 func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyArgs) error {
 		ps.RegisterLock.Lock()
 		alreadyJoined := false
-		fmt.Println("IN REGISTER SERVER", ps.NumConnected, args.Port)
 
 		for i := 0; i < ps.NumConnected; i++ {
 			if ps.Servers[i] == args.Port {
@@ -221,7 +214,6 @@ func (ps *paxosServer) RegisterServer(args *RegisterArgs, reply *RegisterReplyAr
 }
 
 func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
-		fmt.Println("given the file")
 		fmt.Println(ps.CommittedMsgsFile.Name())
 		replyBytes, err := ioutil.ReadFile(ps.CommittedMsgsFile.Name())
 
@@ -241,7 +233,6 @@ func (ps *paxosServer) ServeMessageFile(args *FileArgs, reply *FileReply) error{
 
 func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageReplyArgs) error {
 	if(Active) {
-		fmt.Println("in send message")
 		ps.MsgQueue.PushBack(args.Value)
 		return ps.Propose(args, reply)
 	}
@@ -249,7 +240,6 @@ func (ps *paxosServer) SendMessage(args *SendMessageArgs, reply *SendMessageRepl
 }
 
 func (ps *paxosServer) WakeupServer(args *WakeupRequestArgs, reply *WakeupReplyArgs) error{
-	fmt.Println("Wakingup server", ps.Port)
 	ps.wakeupChan <- true
 	return nil
 }
@@ -259,9 +249,7 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 	//  sendPropose, sendAccept, sendCommit, receivePropose
 	//  receiveAccept, receiveCommit
 	//	killTime string //start, mid, end
-	fmt.Println("In Check Kill", ps.Port, "stage", currStage, "time", currTime)
 	if tester.Stage == currStage && tester.Time == currTime {
-		fmt.Println("got into if statement in check kill")
 		var timeAmount int
 		Active = false
 
@@ -276,7 +264,6 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 			select {
 			case <-t.C:
 				Active = true
-				fmt.Println("WAKING UP")
 				//do nothing
 			case <-ps.wakeupChan:
 				Active = true
@@ -293,7 +280,6 @@ func (ps *paxosServer) CheckKill(tester *Tester, currStage string, currTime stri
 //Functions related to Recovery
 func (ps *paxosServer) SendRecover(args *ManualRecoverArgs, reply *ManualRecoverReply) error {
 	if(Active) {
-		fmt.Println("bugaboo in handle recover", ps.Port)
 		logs := make(map[int]*RecoverReplyArgs)
 		maxRound := 0
 
@@ -304,7 +290,7 @@ func (ps *paxosServer) SendRecover(args *ManualRecoverArgs, reply *ManualRecover
 			err := conn.Call("PaxosServer.HandleRecover", args, reply)
 
 			if err != nil {
-				fmt.Println("Error occured while calling Handle Recover", err)
+				fmt.Println("Error occurred while calling Handle Recover", err)
 				continue
 			}
 
@@ -318,17 +304,13 @@ func (ps *paxosServer) SendRecover(args *ManualRecoverArgs, reply *ManualRecover
 		for i := ps.RoundID; i < maxRound; i++ {
 			//check to make sure that all of them are the same for that round id
 			var val []byte
-			fmt.Println("RECOVERING ROUND", i)
 			for port, log := range logs {
 				if log.RoundID > ps.RoundID {
 					if val == nil {
-						fmt.Println("Got the first log from", port)
 						val = log.CommittedValues[i]
 					}
 					if !bytes.Equal(log.CommittedValues[i], val) {
-						fmt.Println("Log not equal is", port)
 						//This should never happen
-						fmt.Println("POOOOOOOOP")
 						return errors.New("Paxos server " + strconv.Itoa(port) + " logs are not correct")
 					}
 				}
@@ -336,7 +318,6 @@ func (ps *paxosServer) SendRecover(args *ManualRecoverArgs, reply *ManualRecover
 
 			ps.CommittedMsgs[ps.RoundID] = val
 			ps.CommittedMsgsFile.Write(bytes.Trim(val, "\x00"))
-			fmt.Println(ps.RoundID, ps.Port, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 			ps.RoundID++
 		}
 	}
@@ -364,12 +345,10 @@ func (ps *paxosServer) HandleRecover(args *RecoverArgs, reply *RecoverReplyArgs)
 
 //Functions related to Proposer
 func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) error {
-	fmt.Println("In Propose", ps.Port)
 	b, err := ps.CheckKill(&args.Tester, "sendPropose", "start")
 	if b {
 		return err
 	}
-	fmt.Println("Done with check kill")
 
 	if ps.MaxSeenProposalID > ps.ProposalID {
 		//update the proposal id to the now highest seen proposal id
@@ -390,7 +369,6 @@ func (ps *paxosServer) Propose(args *SendMessageArgs, _ *SendMessageReplyArgs) e
 	}
 
 	for port, conn := range ps.RPCConnections  {
-		fmt.Println("Sending Propose messages", port)
 		proposeArgs := &ProposeArgs{
 			RoundID:    ps.RoundID,
 			ProposalID: ps.ProposalID,
@@ -653,7 +631,6 @@ func (ps *paxosServer) HandleCommit(args *CommitArgs, _ *CommitReplyArgs) error 
 			}
 		}
 
-		fmt.Println(ps.RoundID, ps.Port, "________________________________________")
 		ps.RoundID++
 
 		ps.ProposeAcceptedQueue = list.New()
@@ -694,23 +671,21 @@ func (ps *paxosServer) ReplaceServer(args *ReplaceServerArgs, reply *ReplaceServ
 	ps.ProposeAcceptedQueue = list.New()
 	ps.AcceptedQueue = list.New()
 	ps.ToCommitQueue = list.New()
-	fmt.Println("In REPLACE SERVER", ps.NumConnected)
 	ps.NumConnected = ps.NumConnected -1
 
 	for i:=0; i<ps.NumNodes; i++ {
 		if args.DeadNode == ps.Servers[i] {
-			fmt.Println("Deleting deadnode")
+			fmt.Println("Deleting dead node")
 			ps.Servers = append(ps.Servers[:i], ps.Servers[i+1:]...)
 			break
 		}
 	}
 
-	fmt.Println("Deleting the rpc connection to the deadnode")
+
 	delete(ps.RPCConnections, args.DeadNode)
 
 	//wait till the new Node joins, same as in newPaxos server
 	for {
-		fmt.Println("WAITING FOR REGISTER ALL")
 		registerArgs := &RegisterArgs{ps.Port}
 		reply := &RegisterReplyArgs{}
 		var err error
@@ -744,11 +719,8 @@ func (ps *paxosServer) ReplaceServer(args *ReplaceServerArgs, reply *ReplaceServ
 		break
 	}
 
-	fmt.Println("DONE REGISTERING")
-
 	serverConn, dialErr := rpc.DialHTTP("tcp", "localhost:"+strconv.Itoa(args.NewNode))
 	if dialErr != nil {
-		fmt.Println("Error occured while dialing to all servers", dialErr)
 		return dialErr
 	} else {
 		ps.RPCConnections[args.NewNode] = serverConn

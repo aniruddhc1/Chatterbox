@@ -20,8 +20,6 @@ type Logger struct{
 }
 
 func NewLogger() (*Logger, error) {
-	//TODO
-
 	file, errCreate := os.Create("P3-IMPL-LOGGER")
 
 	if errCreate != nil {
@@ -35,12 +33,10 @@ func NewLogger() (*Logger, error) {
 	return log, nil
 }
 
-/*
- *
+/**
+	post a new log message
  */
 func (log *Logger) Post(msg []byte) error {
-	//TODO
-
 	chatMsg := chatclient.ChatMessage{}
 
 	errUnmarshal := json.Unmarshal(msg, chatMsg)
@@ -63,11 +59,7 @@ func (log *Logger) Post(msg []byte) error {
 	return nil
 }
 
-/*
-
- */
 func (log *Logger) GetLog() (*os.File, error) {
-	//TODO
 	return log.file, nil
 }
 
@@ -77,8 +69,3 @@ func (log *Logger) CloseLog() error {
 	errClose := log.file.Close()
 	return errClose
 }
-
-//TODO idk what else this file should have.. 
-
-
-

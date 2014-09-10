@@ -28,7 +28,7 @@ type Tester struct {
 }
 
 type SendMessageReplyArgs struct {
-	//this page intentionally left blank.
+	//intentionally left blank.
 }
 
 type ProposeArgs struct {
@@ -85,11 +85,9 @@ type RegisterReplyArgs struct {
 
 //Will be used by chat client
 type GetCommitMsgsArgs struct {
-	//TODO
 }
 
 type GetCommitMsgsReply struct {
-	//TODO
 }
 
 type FileReply struct{
